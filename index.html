@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>МЕТАЛІСТ ШТУТГАРТ — Coach Board</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="header">
+      <div class="logo">МШ · МЕТАЛІСТ <span>ШТУТГАРТ</span></div>
+      <div class="header-actions">
+        <button class="btn primary" data-act="fs" title="Fullscreen (F)">⛶ BOARD</button>
+        <button class="btn" data-act="export">Export</button>
+      </div>
+    </header>
+    <nav class="sidebar">
+      <a href="#" data-view="board" class="nav on">⚽ Дошка</a>
+      <a href="#" data-view="scenes" class="nav">🎬 Сцени</a>
+      <a href="#" data-view="trainings" class="nav">📋 Тренування</a>
+      <a href="#" data-view="players" class="nav">👥 Гравці</a>
+      <a href="#" data-view="help" class="nav">❓ Довідка</a>
+    </nav>
+    <main class="main">
+      <div class="view on" id="view-board">
+        <div class="board-wrap">
+          <div class="toolbar" id="toolbar">
+            <button class="tb on" data-tool="select" title="Select">↖</button>
+            <button class="tb" data-tool="player" title="Player">●</button>
+            <button class="tb" data-tool="opponent" title="Opponent">○</button>
+            <button class="tb" data-tool="ball" title="Ball">⚽</button>
+            <span class="sep"></span>
+            <button class="tb" data-tool="pass" title="Pass">⇒</button>
+            <button class="tb" data-tool="run" title="Run">⇢</button>
+            <button class="tb" data-tool="dribble" title="Dribble">∿</button>
+            <button class="tb" data-tool="shot" title="Shot">⚡</button>
+            <button class="tb" data-tool="press" title="Press">⬇</button>
+            <span class="sep"></span>
+            <button class="tb" data-tool="zone" title="Rect Zone">▢</button>
+            <button class="tb" data-tool="circle" title="Circle">◎</button>
+            <button class="tb" data-tool="polygon" title="Polygon">⬠</button>
+            <button class="tb" data-tool="freehand" title="Freehand">✎</button>
+            <button class="tb" data-tool="cone" title="Cone">△</button>
+            <button class="tb" data-tool="text" title="Text">T</button>
+            <span class="sep"></span>
+            <button class="tb" data-act="formation" data-f="4-3-3">4-3-3</button>
+            <button class="tb" data-act="formation" data-f="4-2-3-1">4-2-3-1</button>
+            <button class="tb" data-act="formation" data-f="4-4-2">4-4-2</button>
+            <button class="tb" data-act="formation" data-f="3-5-2">3-5-2</button>
+            <span class="sep"></span>
+            <button class="tb" data-act="zoom-out">−</button>
+            <button class="tb" data-act="zoom-fit">⊡</button>
+            <button class="tb" data-act="zoom-in">+</button>
+            <span class="sep"></span>
+            <button class="tb" data-act="play">▶</button>
+            <button class="tb" data-act="pause">⏸</button>
+            <button class="tb" data-act="stop">⏹</button>
+            <button class="tb" data-act="add-kf" title="Keyframe">◆</button>
+            <span class="sep"></span>
+            <button class="tb" data-act="undo">↩</button>
+            <button class="tb" data-act="redo">↪</button>
+            <button class="tb" data-act="clear">🗑</button>
+            <button class="tb" data-act="save-scene">💾</button>
+            <button class="tb primary" data-act="fs">⛶</button>
+          </div>
+          <div class="canvas-host" id="canvasHost">
+            <canvas id="boardCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="view" id="view-scenes">
+        <h2>Сцени</h2>
+        <p class="muted">Необмежена кількість. Кожна сцена = повний стан дошки.</p>
+        <div id="sceneList"></div>
+      </div>
+      <div class="view" id="view-trainings">
+        <h2>Тренування <button class="btn primary" data-act="new-training">+ Нове</button></h2>
+        <div id="trainingList"></div>
+      </div>
+      <div class="view" id="view-players">
+        <h2>Склад МЕТАЛІСТ ШТУТГАРТ</h2>
+        <div id="playerList"></div>
+      </div>
+      <div class="view" id="view-help">
+        <h2>Керування</h2>
+        <ul class="help">
+          <li><b>Палець на фішці</b> → миттєвий drag на будь-яку відстань</li>
+          <li><b>Два пальці</b> → pinch zoom + pan</li>
+          <li><b>F</b> → Board Only / Fullscreen</li>
+          <li><b>ESC</b> → вихід</li>
+          <li><b>Space</b> → play/pause</li>
+          <li><b>Ctrl+Z / Y</b> → undo/redo</li>
+          <li><b>Delete</b> → видалити</li>
+          <li><b>Polygon</b>: tap точок, подвійний tap близько → закрити</li>
+          <li><b>◆</b>: keyframe вибраного гравця</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+  <button class="exit-fs" data-act="exit-fs">✕ EXIT BOARD</button>
+  <div id="toasts" class="toasts"></div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
