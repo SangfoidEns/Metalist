@@ -56,7 +56,11 @@ const App = {
   },
 
   toggleMobileSidebar(force) {
-    const open = force != null ? force : !document.body.classList.contains('sb-open');
+    if (document.body.classList.contains('mode-board-focus')) {
+      // у режимі дошки меню не відкриваємо
+      force = false;
+    }
+    const open = force != null ? !!force : !document.body.classList.contains('sb-open');
     document.body.classList.toggle('sb-open', open);
     let backdrop = document.getElementById('sbBackdrop');
     if (open) {
@@ -64,12 +68,49 @@ const App = {
         backdrop = document.createElement('div');
         backdrop.id = 'sbBackdrop';
         backdrop.className = 'sb-backdrop';
-        backdrop.addEventListener('click', () => this.toggleMobileSidebar(false));
+        backdrop.setAttribute('aria-hidden', 'true');
+        backdrop.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.toggleMobileSidebar(false);
+        });
         document.body.appendChild(backdrop);
       }
+      try {
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      } catch (_) {}
     } else if (backdrop) {
       backdrop.remove();
     }
+  },
+
+  /** Свайп від лівого краю → відкрити drawer (як у Telegram) */
+  bindEdgeSwipeDrawer() {
+    if (this._edgeSwipeBound) return;
+    this._edgeSwipeBound = true;
+    let tracking = false;
+    let sx = 0, sy = 0;
+    const EDGE = 28;
+    document.addEventListener('pointerdown', (e) => {
+      if (document.body.classList.contains('mode-board-focus')) return;
+      if (document.body.classList.contains('sb-open')) return;
+      if (e.clientX > EDGE) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      tracking = true;
+      sx = e.clientX;
+      sy = e.clientY;
+    }, { passive: true, capture: true });
+    document.addEventListener('pointerup', (e) => {
+      if (!tracking) return;
+      tracking = false;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (dx > 56 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+        this.toggleMobileSidebar(true);
+      }
+    }, { passive: true, capture: true });
+    document.addEventListener('pointercancel', () => { tracking = false; }, { passive: true });
   },
 
 
@@ -551,6 +592,7 @@ const App = {
   bindEvents() {
     // Прямі прив'язки (iOS / Telegram): логотип і імпорт не залежать від делегації
     try { this.bindLogoAndImport(); } catch (e) { console.warn(e); }
+    try { this.bindEdgeSwipeDrawer(); } catch (e) { console.warn(e); }
 
     // Event delegation — single listener
     document.addEventListener('click', e => {
