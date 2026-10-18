@@ -275,23 +275,14 @@ const BoardEngine = {
     else this.enterFullscreen();
   },
 
-  /** Повний вихід з дошки: FS + класи + (опційно) навігація */
+  /** Вихід з режиму дошки (CSS). Native fullscreen додатку НЕ чіпаємо. */
   leaveBoardMode() {
     this.isBoardOnly = false;
     document.body.classList.remove(
       'board-fs-nav', 'board-only-mode', 'mode-board-focus',
       'board-workspace', 'present-mode', 'bw-props', 'bw-tools-collapsed', 'bw-nav-hide'
     );
-    try {
-      if (typeof TelegramManager !== 'undefined') {
-        TelegramManager.exitFullscreen();
-        TelegramManager.unlockOrientation();
-      }
-    } catch (_) {}
-    if (document.fullscreenElement) {
-      const ex = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
-      if (ex) try { ex.call(document); } catch (_) {}
-    }
+    // document.fullscreenElement і Telegram fullscreen лишаються як були
   },
 
   /* ── POINTER DOWN ── */
@@ -355,10 +346,12 @@ const BoardEngine = {
       const pp = this.clampWorld(world.x, world.y);
       if (tool === 'opponent') {
         const num = s.activeBoard.objects.filter(o => o.type === 'opponent').length + 1;
+        const oppCol = s.activeBoard.drawColor || undefined;
         s.activeBoard.objects.push({
           id: uid(), type: 'opponent',
           x: pp.x, y: pp.y, number: num, label: '',
           team: 'opp', playerId: null,
+          chipColor: oppCol, color: oppCol,
           rotation: 0, locked: false, visible: true
         });
         this.pushHistory();
@@ -732,6 +725,7 @@ const BoardEngine = {
     if (!p) return;
     const pos = this.clampWorld(x, y);
     const readiness = p.readiness != null ? p.readiness : (p.condition != null ? p.condition : 80);
+    const chipColor = s.activeBoard.drawColor || null;
     s.activeBoard.objects.push({
       id: uid(), type: 'player',
       x: pos.x, y: pos.y,
@@ -740,12 +734,19 @@ const BoardEngine = {
       team: 'own',
       playerId: p.id,
       readiness,
+      load: p.load != null ? p.load : 0,
+      position: p.position || null,
+      status: p.status || null,
+      isCaptain: !!p.isCaptain,
+      chipColor: chipColor || undefined,
+      color: chipColor || undefined,
+      onBench: false,
       rotation: 0, locked: false, visible: true
     });
     this.pushHistory();
     this.render();
     try { TelegramManager.haptic('medium'); } catch (_) {}
-    Toast.show('#' + p.number + ' ' + p.firstName + ' ' + p.lastName + ' · ' + readiness + '%', 'ok');
+    Toast.show('#' + p.number + ' ' + p.firstName + ' · ' + readiness + '%' + (chipColor ? ' · колір' : ''), 'ok');
   },
 
   applyScheme(name, forceTeam) {
@@ -773,27 +774,76 @@ const BoardEngine = {
       Toast.show('Суперник: схема ' + name + ' (дзеркало)', 'ok');
       return;
     }
-    // Своя команда — замінити своїх гравців
+    // Своя команда: основа за схемою, резерв — на лавку
     s.activeBoard.objects = s.activeBoard.objects.filter(o => o.type !== 'player');
+    const chipColor = s.activeBoard.drawColor || null;
+    const usedIds = new Set();
     scheme.forEach(([num, x, y]) => {
       const p = this.clampWorld(x, y);
-      // спроба прив'язати гравця зі складу за номером
-      const roster = (s.players || []).find(pl => pl.number === num);
+      let roster = (s.players || []).find(pl => pl.number === num && pl.group !== 'reserve');
+      if (!roster) roster = (s.players || []).find(pl => pl.number === num);
+      if (roster) usedIds.add(roster.id);
       s.activeBoard.objects.push({
         id: uid(), type: 'player', x: p.x, y: p.y, number: num,
         label: roster ? (roster.lastName || '') : '',
         team: 'own',
         playerId: roster ? roster.id : null,
-        readiness: roster ? (roster.readiness != null ? roster.readiness : roster.condition) : null,
+        readiness: roster ? (roster.readiness != null ? roster.readiness : roster.condition) : 80,
+        load: roster && roster.load != null ? roster.load : 0,
         position: roster ? roster.position : null,
         status: roster ? roster.status : null,
         isCaptain: roster ? !!roster.isCaptain : false,
+        chipColor: chipColor || undefined,
+        color: chipColor || undefined,
+        onBench: false,
+        rotation: 0, locked: false, visible: true
+      });
+    });
+    // Резерв / невикористані — сектор запасних (ліва бровка)
+    const reserves = (s.players || []).filter(pl =>
+      !usedIds.has(pl.id) && (pl.group === 'reserve' || pl.group === 'gk' || true)
+    ).filter(pl => !usedIds.has(pl.id));
+    // лише хто не на полі: group reserve або всі невикористані з group reserve/main overflow
+    const benchPlayers = (s.players || []).filter(pl => !usedIds.has(pl.id) && (
+      pl.group === 'reserve' || pl.status === 'injured' || pl.status === 'rehab' || pl.status === 'recovery'
+    ));
+    // якщо резерв порожній — інші невикористані main як лавка (опційно топ-8)
+    const benchList = benchPlayers.length
+      ? benchPlayers
+      : (s.players || []).filter(pl => !usedIds.has(pl.id)).slice(0, 8);
+    benchList.forEach((roster, i) => {
+      const slot = this.benchSlot(i, benchList.length);
+      s.activeBoard.objects.push({
+        id: uid(), type: 'player',
+        x: slot.x, y: slot.y,
+        number: roster.number,
+        label: roster.lastName || '',
+        team: 'own',
+        playerId: roster.id,
+        readiness: roster.readiness != null ? roster.readiness : (roster.condition != null ? roster.condition : 80),
+        load: roster.load != null ? roster.load : 0,
+        position: roster.position || null,
+        status: roster.status || null,
+        isCaptain: !!roster.isCaptain,
+        chipColor: chipColor || undefined,
+        color: chipColor || undefined,
+        onBench: true,
         rotation: 0, locked: false, visible: true
       });
     });
     this.pushHistory();
     this.render();
-    Toast.show('Схема ' + name, 'ok');
+    Toast.show('Схема ' + name + (benchList.length ? ' + лавка ' + benchList.length : ''), 'ok');
+  },
+
+  /** Координати місця на лавці запасних (лівий край поля) */
+  benchSlot(index, total) {
+    const x = 0.035;
+    const top = 0.10;
+    const bottom = 0.90;
+    const n = Math.max(total, 1);
+    const y = top + (bottom - top) * (index / Math.max(n - 1, 1));
+    return this.clampWorld(x, y);
   },
 
   saveBoard() {
@@ -1198,10 +1248,15 @@ const BoardEngine = {
       `<circle cx="${W / 2}" cy="${H - 130}" r="3" fill="${L}"/>` +
       `<rect x="${W / 2 - 36.6}" y="5" width="73.2" height="15" fill="none" stroke="${L}" stroke-width="2"/>` +
       `<rect x="${W / 2 - 36.6}" y="${H - 20}" width="73.2" height="15" fill="none" stroke="${L}" stroke-width="2"/>` +
-      /* Watermark — background only, no pointer events, not in undo */
+      /* Watermark */
       `<text class="pitch-watermark" x="${W / 2}" y="${H / 2 - 36}" text-anchor="middle" dominant-baseline="auto" ` +
       `fill="rgba(255,255,255,0.15)" font-family="system-ui,-apple-system,Segoe UI,sans-serif" ` +
-      `font-weight="700" font-size="38" letter-spacing="2" pointer-events="none" style="user-select:none">Metalist Stuttgart</text>`;
+      `font-weight="700" font-size="38" letter-spacing="2" pointer-events="none" style="user-select:none">Metalist Stuttgart</text>` +
+      /* Сектор запасних (ліва бровка) */
+      `<rect class="bench-zone" x="4" y="${H * 0.08}" width="${W * 0.07}" height="${H * 0.84}" ` +
+      `rx="8" fill="rgba(0,0,0,0.28)" stroke="rgba(213,255,63,0.35)" stroke-width="1.5" stroke-dasharray="6,4" pointer-events="none"/>` +
+      `<text x="${W * 0.04}" y="${H * 0.065}" text-anchor="middle" fill="rgba(213,255,63,0.7)" ` +
+      `font-size="14" font-weight="700" letter-spacing="1" pointer-events="none">ЗАПАС</text>`;
   },
 
   /** Розмір фішки відносно видимої висоти поля (розмітка ~105м, гравець ~1.7%) */
@@ -1276,12 +1331,17 @@ const BoardEngine = {
       })());
       const cls = 'pt ' + (o.team === 'opp' ? 'opp' : (isGk ? 'gk' : 'own')) + (sel === o.id ? ' sel' : '');
       let readiness = o.readiness;
-      if (readiness == null && o.playerId) {
+      let loadVal = o.load;
+      if (o.playerId) {
         const pl = Store.get().players.find(p => p.id === o.playerId);
-        if (pl) readiness = pl.readiness != null ? pl.readiness : pl.condition;
+        if (pl) {
+          if (readiness == null) readiness = pl.readiness != null ? pl.readiness : pl.condition;
+          if (loadVal == null) loadVal = pl.load;
+        }
       }
-      const ringColor = readiness == null ? 'transparent'
-        : readiness >= 80 ? '#2ecc71' : readiness >= 50 ? '#f1c40f' : '#e74c3c';
+      if (readiness == null) readiness = 75;
+      const ringColor = readiness >= 80 ? '#2ecc71' : readiness >= 50 ? '#f1c40f' : '#e74c3c';
+      const loadNum = loadVal != null ? +loadVal : null;
       const ring = readiness != null
         ? `<svg class="pt-ring" viewBox="0 0 36 36" aria-hidden="true" style="width:${m.player + 10}px;height:${m.player + 10}px"><circle cx="18" cy="18" r="16" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="3"/><circle cx="18" cy="18" r="16" fill="none" stroke="${ringColor}" stroke-width="3" stroke-dasharray="${(readiness/100)*100.5} 100.5" stroke-linecap="round" transform="rotate(-90 18 18)"/></svg>`
         : '';
@@ -1311,6 +1371,10 @@ const BoardEngine = {
         return '<span class="pt-badge ' + b.cls + '" title="' + b.title +
           '" style="left:calc(50% + ' + ox.toFixed(1) + 'px);top:calc(50% + ' + oy.toFixed(1) + 'px)">' + b.text + '</span>';
       }).join('');
+      // Індикатор Load (0–10) — знизу-ліворуч на фішці
+      const loadBadge = (loadNum != null && !isNaN(loadNum))
+        ? '<span class="pt-badge pt-load" title="Load ' + loadNum + '/10" style="left:calc(50% - ' + (rPx + 2).toFixed(1) + 'px);top:calc(50% + ' + (rPx * 0.55).toFixed(1) + 'px)">' + Math.round(loadNum) + '</span>'
+        : '';
       // Позиція + ім'я одним рядком ПІД фішкою (без окремого pt-pos)
       const nameText = o.label || '';
       const label = (nameText || posCode)
@@ -1330,7 +1394,7 @@ const BoardEngine = {
       // Колір фішки: явний chipColor / fill / color, інакше CSS-клас own/opp/gk
       const customBg = o.chipColor || o.fill || (o.team === 'own' || o.team === 'opp' ? o.color : null);
       const bgStyle = customBg ? `background:${customBg} !important;border-color:rgba(255,255,255,.55);` : '';
-      html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}"${readyAttr} style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px;${ringShadow};${bgStyle}" title="${sanitize(titleName + titleExtra)}">${statusBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
+      html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}"${readyAttr} style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px;${ringShadow};${bgStyle}" title="${sanitize(titleName + titleExtra)}">${statusBadge}${loadBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
     });
     layer.innerHTML = html;
     // Re-bind dblclick / contextmenu without inline handlers
@@ -1377,14 +1441,17 @@ const BoardEngine = {
 
     s.activeBoard.objects.forEach(o => {
       if (['arrow', 'arrowDash', 'pass', 'run', 'dribble', 'press', 'shot'].includes(o.type) && o.x2 != null) {
-        let col = o.color || this.strokeColorFor(o.type), mk = 'ah', dash = '', sw = 3;
-        if (o.type === 'pass') { col = o.color || '#3498db'; mk = 'ahb'; }
-        else if (o.type === 'press') { col = o.color || '#e74c3c'; mk = 'ahr'; }
-        else if (o.type === 'run') { col = '#2ecc71'; mk = 'ahg'; dash = 'stroke-dasharray="10,6"'; }
-        else if (o.type === 'dribble') { col = '#9b59b6'; mk = 'ah'; dash = 'stroke-dasharray="4,4"'; }
-        else if (o.type === 'shot') { col = '#fff'; mk = 'ahw'; sw = 4; }
-        else if (o.type === 'arrowDash') { dash = 'stroke-dasharray="8,6"'; }
-        html += `<line x1="${tx(o.x)}" y1="${ty(o.y)}" x2="${tx(o.x2)}" y2="${ty(o.y2)}" stroke="${col}" stroke-width="${sw}" marker-end="url(#${mk})" ${dash}/>`;
+        // o.color завжди пріоритетний (палітра); інакше дефолт типу
+        let col = o.color || this.strokeColorFor(o.type) || '#f1c40f';
+        let dash = '', sw = 3;
+        if (o.type === 'run' || o.type === 'arrowDash') dash = 'stroke-dasharray="10,6"';
+        if (o.type === 'dribble') dash = 'stroke-dasharray="4,4"';
+        if (o.type === 'shot') sw = 4;
+        const mkId = 'mk_' + String(col).replace(/[^a-zA-Z0-9]/g, '');
+        if (!html.includes('id="' + mkId + '"')) {
+          html += `<marker id="${mkId}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="${col}"/></marker>`;
+        }
+        html += `<line x1="${tx(o.x)}" y1="${ty(o.y)}" x2="${tx(o.x2)}" y2="${ty(o.y2)}" stroke="${col}" stroke-width="${sw}" marker-end="url(#${mkId})" ${dash}/>`;
         if (o.step != null) {
           const mx = (tx(o.x) + tx(o.x2)) / 2, my = (ty(o.y) + ty(o.y2)) / 2;
           html += `<circle cx="${mx}" cy="${my}" r="11" fill="rgba(13,17,23,0.85)" stroke="${col}" stroke-width="1.5"/>`;
