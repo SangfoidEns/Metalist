@@ -79,16 +79,16 @@ const Views = {
     if (!list.length) return '<div class="es"><div class="ic">📋</div>Немає тренувань</div>';
     return list.map(t => {
       const total = (t.structure || []).reduce((a, b) => a + (b.duration || 0), 0);
-      return `<div class="card">
+      return `<div class="card card-training" data-edit-training="${t.id}" role="button" tabindex="0">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
           <div><strong>${sanitize(t.name)}</strong>
             <div class="me" style="font-size:11px;color:var(--muted);margin-top:3px">${t.date} ${t.time || ''} · ${t.duration}хв · <span class="badge b-i">${t.status}</span> · Load: ${LoadModel.sessionLoad(t.duration, t.intensity)}</div>
             ${t.structure ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${t.structure.map(b => sanitize(b.title || b.name) + '(' + b.duration + 'хв)').join(' → ')} = ${total}хв</div>` : ''}
           </div>
-          <div style="display:flex;gap:3px">
-            <button class="btn btn-s btn-sm" data-edit-training="${t.id}">Редагувати</button>
-            <button class="btn btn-s btn-sm" data-dup-training="${t.id}">Дубль</button>
-            <button class="btn btn-d btn-sm" data-del-training="${t.id}">✕</button>
+          <div style="display:flex;gap:3px" data-edit-training="${t.id}">
+            <button type="button" class="btn btn-s btn-sm" data-edit-training="${t.id}">Деталі</button>
+            <button type="button" class="btn btn-s btn-sm" data-dup-training="${t.id}">Дубль</button>
+            <button type="button" class="btn btn-d btn-sm" data-del-training="${t.id}">✕</button>
           </div>
         </div>
       </div>`;
@@ -243,7 +243,10 @@ const Views = {
       <div class="ch"><strong>${title}</strong></div>
       ${grid}
       <div class="card" style="margin-top:12px"><div class="ct">Події ${ds}</div>
-        ${events.length ? events.map(e => `<div class="li"><div class="inf"><div class="ti">${sanitize(e.title || e.name)}</div><div class="me">${e.type || e.eventType} · ${e.time || ''}</div></div></div>`).join('') : '<div style="color:var(--muted);font-size:12px">Немає подій</div>'}
+        ${events.length ? events.map(e => {
+        const openAttr = e.type === 'TRAINING' && e.id ? ` data-edit-training="${e.id}"` : (e.type === 'MATCH' && e.id ? ` data-view-match="${e.id}"` : '');
+        return `<div class="li"${openAttr} style="cursor:pointer"><div class="inf"><div class="ti">${sanitize(e.title || e.name)}</div><div class="me">${e.type || e.eventType} · ${e.time || ''}</div></div></div>`;
+      }).join('') : '<div style="color:var(--muted);font-size:12px">Немає подій</div>'}
       </div>
       <div class="card"><div class="ct">Мікроцикл / Шаблони</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">

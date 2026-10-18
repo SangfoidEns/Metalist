@@ -623,7 +623,7 @@ const App = {
 
       // data-view навігація: блокуємо, якщо це вкладений клік у кнопці редагування
       if (view && !t.dataset.action) {
-        if (e.target.closest('[data-edit-training],[data-del-training],[data-dup-training],[data-edit-player],[data-modal-action]')) {
+        if (e.target.closest('[data-edit-training],[data-del-training],[data-dup-training],[data-edit-player],[data-modal-action],.card-training')) {
           return;
         }
         e.preventDefault();
@@ -774,7 +774,10 @@ const App = {
       if (action === 'export-stats') return StorageManager.exportJSON();
 
       if (t.dataset.editTraining) {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        // ТІЛЬКИ модалка деталей — без переходу на дошку
         return Actions.editTraining(t.dataset.editTraining);
       }
       if (action === 'open-training-board') {

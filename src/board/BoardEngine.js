@@ -1253,19 +1253,23 @@ const BoardEngine = {
       const isRehab = status === 'rehab' || status === 'recovery';
       const isReserve = status === 'reserve' || (pl && pl.group === 'reserve');
       const isCaptain = !!(o.isCaptain || (pl && pl.isCaptain));
-      // Бейджі відносно радіуса фішки (R = 50% width): позиції у % від розміру фішки
-      const badges = [];
-      if (isCaptain) {
-        badges.push('<span class="pt-badge pt-cap" title="Капітан" style="left:85%;top:15%">C</span>');
-      }
-      if (isInjured) {
-        badges.push('<span class="pt-badge pt-inj" title="Травмований" style="left:85%;top:85%">✚</span>');
-      } else if (isRehab) {
-        badges.push('<span class="pt-badge pt-rehab" title="Відновлення" style="left:85%;top:85%">↻</span>');
-      } else if (isReserve) {
-        badges.push('<span class="pt-badge pt-res" title="Резерв" style="left:85%;top:85%">R</span>');
-      }
-      const statusBadge = badges.join('');
+      // Радіальні бейджі: центр фішки = (50%,50%), R у % ширини фішки
+      const radialItems = [];
+      if (isCaptain) radialItems.push({ cls: 'pt-cap', text: 'C', title: 'Капітан' });
+      if (isInjured) radialItems.push({ cls: 'pt-inj', text: '✚', title: 'Травмований' });
+      else if (isRehab) radialItems.push({ cls: 'pt-rehab', text: '↻', title: 'Відновлення' });
+      else if (isReserve) radialItems.push({ cls: 'pt-res', text: 'R', title: 'Резерв' });
+      const nBadge = radialItems.length;
+      const statusBadge = radialItems.map((b, i) => {
+        // angle від вершини, рівномірно по колу (або сектор якщо 1–2)
+        const total = Math.max(nBadge, 1);
+        const angle = (i * (2 * Math.PI / total)) - Math.PI / 2;
+        const offset = 1.15; // R * offset від центру (трохи поза краєм)
+        const left = 50 + 50 * offset * Math.cos(angle);
+        const top = 50 + 50 * offset * Math.sin(angle);
+        return '<span class="pt-badge ' + b.cls + '" title="' + b.title +
+          '" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(2) + '%">' + b.text + '</span>';
+      }).join('');
       const posBadge = posCode ? `<span class="pt-pos">${sanitize(posCode)}</span>` : '';
       const titleName = (o.label || ('#' + (o.number || ''))) + (posCode ? ' · ' + posCode : '');
       const titleExtra = (readiness != null ? ` · готовність ${readiness}%` : '')
