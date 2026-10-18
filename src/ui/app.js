@@ -463,7 +463,7 @@ const App = {
   },
 
   /** Дозволені причини переходу на дошку */
-  _boardNavReasons: new Set(['logo']),
+  _boardNavReasons: new Set(['logo', 'preset', 'scheme', 'board-tpl', 'load-board', 'b3-phase', 'special']),
   allowBoardOnce(reason) {
     this._boardNavToken = reason || 'explicit';
   },
@@ -820,19 +820,25 @@ const App = {
       if (t.dataset.scheme) {
         e.preventDefault(); e.stopPropagation();
         BoardEngine.applyScheme(t.dataset.scheme);
-        Toast.show('Схему «' + t.dataset.scheme + '» збережено. Відкрийте дошку через логотип.', 'ok');
+        App.allowBoardOnce('scheme');
+        App.navigate('board');
+        Toast.show('Схема: ' + t.dataset.scheme, 'ok');
         return;
       }
       if (t.dataset.boardTpl) {
         e.preventDefault(); e.stopPropagation();
         BoardEngine.applyScheme(t.dataset.boardTpl);
-        Toast.show('Шаблон застосовано. Відкрийте дошку через логотип клубу.', 'ok');
+        App.allowBoardOnce('board-tpl');
+        App.navigate('board');
+        Toast.show('Шаблон на дошці', 'ok');
         return;
       }
       if (t.dataset.b3Phase) {
         e.preventDefault(); e.stopPropagation();
         BoardEngine.applyScheme(t.dataset.b3Phase);
-        Toast.show('Фаза: ' + (t.dataset.b3Name || t.dataset.b3Phase) + '. Відкрийте дошку через логотип.', 'ok');
+        App.allowBoardOnce('b3-phase');
+        App.navigate('board');
+        Toast.show('Фаза: ' + (t.dataset.b3Name || t.dataset.b3Phase), 'ok');
         return;
       }
       if (t.dataset.b3Rot) {
@@ -874,8 +880,10 @@ const App = {
         const ex = (Store.get().myExercises || []).find(x => x.id === t.dataset.loadMyexBoard);
         if (ex && ex.board) {
           Store.get().activeBoard.objects = JSON.parse(JSON.stringify(ex.board.objects || []));
-          try { BoardEngine.render(); } catch (_) {}
-          Toast.show('Схема вправи завантажена. Відкрийте дошку через логотип.', 'ok');
+          App.allowBoardOnce('preset');
+          App.navigate('board');
+          setTimeout(() => { try { BoardEngine.render(); } catch (_) {} }, 50);
+          Toast.show('Дошка вправи', 'ok');
         }
         return;
       }
@@ -918,7 +926,9 @@ const App = {
       if (t.dataset.loadBoard) {
         e.preventDefault(); e.stopPropagation();
         BoardEngine.loadBoard(t.dataset.loadBoard);
-        Toast.show('Сцену завантажено. Відкрийте дошку через логотип.', 'ok');
+        App.allowBoardOnce('load-board');
+        App.navigate('board');
+        Toast.show('Заготовку відкрито на дошці', 'ok');
         return;
       }
       if (t.dataset.delBoard) return Modal.confirm('Видалити схему?', () => { Store.get().boards = Store.get().boards.filter(x => x.id !== t.dataset.delBoard); StorageManager.save(); App.renderCurrent(); });
@@ -929,7 +939,9 @@ const App = {
           setpiece: '4-4-2', transition: '4-1-4-1', highpress: '3-4-3'
         };
         BoardEngine.applyScheme(map[t.dataset.special] || '4-3-3');
-        Toast.show('Схема застосована. Відкрийте дошку через логотип.', 'ok');
+        App.allowBoardOnce('special');
+        App.navigate('board');
+        Toast.show('Схема: ' + (t.dataset.special || ''), 'ok');
         return;
       }
       if (t.dataset.day) { Store.get().ui.selectedDay = t.dataset.day; App.renderCurrent(); return; }

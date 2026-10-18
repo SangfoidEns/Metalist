@@ -217,23 +217,27 @@ const BoardEngine = {
   /* ── FULLSCREEN / BOARD-ONLY MODE ── */
   enterFullscreen() {
     this.isBoardOnly = true;
-    document.body.classList.add('board-fs-nav');
-    document.body.classList.add('board-only-mode');
-    // Не перемикаємо роутер — fullscreen лише якщо вже на дошці
-    // Telegram Mini App fullscreen (if available)
-    if (typeof TelegramManager !== 'undefined' && TelegramManager.isTelegram) {
-      TelegramManager.requestFullscreen();
-      TelegramManager.lockLandscape();
-    }
-    // Browser Fullscreen API (best effort)
-    const el = document.documentElement;
-    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    document.body.classList.add('board-fs-nav', 'board-only-mode', 'mode-board-focus', 'board-workspace');
+    // Telegram Mini App
+    try {
+      if (typeof TelegramManager !== 'undefined' && TelegramManager.isTelegram) {
+        TelegramManager.requestFullscreen();
+        TelegramManager.lockLandscape();
+      }
+    } catch (_) {}
+    // Browser Fullscreen API — поле або document
+    const target = document.getElementById('v-board') || document.getElementById('fieldStage') || document.documentElement;
+    const req = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen
+      || document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
     if (req) {
-      try { req.call(el); } catch (_) {}
+      try { req.call(target === document.documentElement ? document.documentElement : target); } catch (e) {
+        try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch (_) {}
+      }
     }
-    // Ensure board is visible and sized
-    setTimeout(() => this.render(), 100);
-    Toast.show('Лише дошка — ESC або ВИХІД', 'ok');
+    setTimeout(() => {
+      try { this.render(); this.fitField && this.fitField(); this.renderToolbar && this.renderToolbar(); } catch (_) {}
+    }, 120);
+    try { Toast.show('Повний екран — ⛶ або ESC для виходу', 'ok'); } catch (_) {}
   },
 
   exitFullscreen() {
@@ -1242,7 +1246,7 @@ const BoardEngine = {
       const ringColor = readiness == null ? 'transparent'
         : readiness >= 80 ? '#2ecc71' : readiness >= 50 ? '#f1c40f' : '#e74c3c';
       const ring = readiness != null
-        ? `<svg class="pt-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="16" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="3"/><circle cx="18" cy="18" r="16" fill="none" stroke="${ringColor}" stroke-width="3" stroke-dasharray="${(readiness/100)*100.5} 100.5" stroke-linecap="round" transform="rotate(-90 18 18)"/></svg>`
+        ? `<svg class="pt-ring" viewBox="0 0 36 36" aria-hidden="true" style="width:${m.player + 8}px;height:${m.player + 8}px"><circle cx="18" cy="18" r="16" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="3"/><circle cx="18" cy="18" r="16" fill="none" stroke="${ringColor}" stroke-width="3" stroke-dasharray="${(readiness/100)*100.5} 100.5" stroke-linecap="round" transform="rotate(-90 18 18)"/></svg>`
         : '';
       // Дані зі складу
       let pl = null;
@@ -1261,15 +1265,14 @@ const BoardEngine = {
       else if (isReserve) radialItems.push({ cls: 'pt-res', text: 'R', title: 'Резерв' });
       const nBadge = radialItems.length;
       const rPx = m.player / 2;
+      // radiusOffset = R + 4 (щільне облягання фішки)
+      const radiusOffset = rPx + 4;
       const statusBadge = radialItems.map((b, i) => {
         const total = Math.max(nBadge, 1);
-        const base = -Math.PI / 4;
-        const angle = base + (i * (2 * Math.PI / Math.max(total, 4)));
-        // r = R + 6px offset; center at 50%/50%; badge center = center + r*cos/sin
-        // as % of chip size (size = 2R): 50 + ((R+6)/R)*50*cos
-        const k = (rPx + 6) / Math.max(rPx, 1);
-        const left = 50 + 50 * k * Math.cos(angle);
-        const top = 50 + 50 * k * Math.sin(angle);
+        const angle = -Math.PI / 2 + (i * (2 * Math.PI / Math.max(total, 3)));
+        // координати відносно центру фішки (50%,50%), у % від width=2R
+        const left = 50 + (radiusOffset / Math.max(rPx, 1)) * 50 * Math.cos(angle);
+        const top = 50 + (radiusOffset / Math.max(rPx, 1)) * 50 * Math.sin(angle);
         return '<span class="pt-badge ' + b.cls + '" title="' + b.title +
           '" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(2) + '%">' + b.text + '</span>';
       }).join('');
@@ -1583,7 +1586,7 @@ const BoardEngine = {
         <button type="button" class="tb tb-exit" data-action="exit-board" title="Вихід з дошки">✕</button>
         <button type="button" class="tb" data-action="toggle-toolbar-collapse" title="Згорнути / розгорнути панель">↕</button>
         <button type="button" class="tb" data-action="lock-toolbar" title="Зафіксувати панель">🔒</button>
-        <button type="button" class="tb" data-action="toggle-fullscreen" title="На весь екран">⛶</button>
+        <button type="button" class="tb tb-fs" data-action="toggle-fullscreen" title="Повний екран / згорнути">⛶</button>
         <button type="button" class="tb" data-action="zoom-fit" title="Вписати поле">⊡</button>
       </div>
       <div class="btb-rows">
