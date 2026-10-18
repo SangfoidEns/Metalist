@@ -99,6 +99,7 @@ const BoardEngine = {
     const s = Store.get();
     let best = null, bestD = maxDist;
     (s.activeBoard.objects || []).forEach(o => {
+      if (o.onBench) return;
       if (!['player', 'opponent', 'ball'].includes(o.type)) return;
       const d = Math.hypot((o.x || 0) - wx, (o.y || 0) - wy);
       if (d < bestD) { bestD = d; best = o; }
@@ -774,11 +775,12 @@ const BoardEngine = {
       Toast.show('Суперник: схема ' + name + ' (дзеркало)', 'ok');
       return;
     }
-    // Своя команда: основа за схемою, резерв — на лавку
-    s.activeBoard.objects = s.activeBoard.objects.filter(o => o.type !== 'player');
+    // Своя команда: рівно 11 на полі за схемою, УСІ інші — у панель ЗАПАС
+    s.activeBoard.objects = s.activeBoard.objects.filter(o => !(o.type === 'player' && o.team !== 'opp'));
     const chipColor = s.activeBoard.drawColor || null;
     const usedIds = new Set();
-    scheme.forEach(([num, x, y]) => {
+    // 1) Основа — позиції схеми (макс 11)
+    scheme.slice(0, 11).forEach(([num, x, y]) => {
       const p = this.clampWorld(x, y);
       let roster = (s.players || []).find(pl => pl.number === num && pl.group !== 'reserve');
       if (!roster) roster = (s.players || []).find(pl => pl.number === num);
@@ -799,23 +801,12 @@ const BoardEngine = {
         rotation: 0, locked: false, visible: true
       });
     });
-    // Резерв / невикористані — сектор запасних (ліва бровка)
-    const reserves = (s.players || []).filter(pl =>
-      !usedIds.has(pl.id) && (pl.group === 'reserve' || pl.group === 'gk' || true)
-    ).filter(pl => !usedIds.has(pl.id));
-    // лише хто не на полі: group reserve або всі невикористані з group reserve/main overflow
-    const benchPlayers = (s.players || []).filter(pl => !usedIds.has(pl.id) && (
-      pl.group === 'reserve' || pl.status === 'injured' || pl.status === 'rehab' || pl.status === 'recovery'
-    ));
-    // якщо резерв порожній — інші невикористані main як лавка (опційно топ-8)
-    const benchList = benchPlayers.length
-      ? benchPlayers
-      : (s.players || []).filter(pl => !usedIds.has(pl.id)).slice(0, 8);
-    benchList.forEach((roster, i) => {
-      const slot = this.benchSlot(i, benchList.length);
+    // 2) Усі інші зі складу → лавка (окрема панель, не на полі)
+    const benchList = (s.players || []).filter(pl => !usedIds.has(pl.id));
+    benchList.forEach((roster) => {
       s.activeBoard.objects.push({
         id: uid(), type: 'player',
-        x: slot.x, y: slot.y,
+        x: 0, y: 0,
         number: roster.number,
         label: roster.lastName || '',
         team: 'own',
@@ -833,17 +824,7 @@ const BoardEngine = {
     });
     this.pushHistory();
     this.render();
-    Toast.show('Схема ' + name + (benchList.length ? ' + лавка ' + benchList.length : ''), 'ok');
-  },
-
-  /** Координати місця на лавці запасних (лівий край поля) */
-  benchSlot(index, total) {
-    const x = 0.035;
-    const top = 0.10;
-    const bottom = 0.90;
-    const n = Math.max(total, 1);
-    const y = top + (bottom - top) * (index / Math.max(n - 1, 1));
-    return this.clampWorld(x, y);
+    Toast.show('Основа 11 · Запас ' + benchList.length + (chipColor ? ' · колір' : ''), 'ok');
   },
 
   saveBoard() {
@@ -1252,11 +1233,7 @@ const BoardEngine = {
       `<text class="pitch-watermark" x="${W / 2}" y="${H / 2 - 36}" text-anchor="middle" dominant-baseline="auto" ` +
       `fill="rgba(255,255,255,0.15)" font-family="system-ui,-apple-system,Segoe UI,sans-serif" ` +
       `font-weight="700" font-size="38" letter-spacing="2" pointer-events="none" style="user-select:none">Metalist Stuttgart</text>` +
-      /* Сектор запасних (ліва бровка) */
-      `<rect class="bench-zone" x="4" y="${H * 0.08}" width="${W * 0.07}" height="${H * 0.84}" ` +
-      `rx="8" fill="rgba(0,0,0,0.28)" stroke="rgba(213,255,63,0.35)" stroke-width="1.5" stroke-dasharray="6,4" pointer-events="none"/>` +
-      `<text x="${W * 0.04}" y="${H * 0.065}" text-anchor="middle" fill="rgba(213,255,63,0.7)" ` +
-      `font-size="14" font-weight="700" letter-spacing="1" pointer-events="none">ЗАПАС</text>`;
+      '';
   },
 
   /** Розмір фішки відносно видимої висоти поля (розмітка ~105м, гравець ~1.7%) */
@@ -1271,7 +1248,39 @@ const BoardEngine = {
     return { player, ball, cone, equip, font: Math.max(8, player * 0.32) };
   },
 
+
+  /** Лавка запасних — окрема панель біля поля (не на газоні) */
+  renderBenchPanel() {
+    const list = document.getElementById('benchList');
+    const panel = document.getElementById('benchPanel');
+    if (!list || !panel) return;
+    const s = Store.get();
+    const bench = (s.activeBoard.objects || []).filter(o => o.onBench && (o.type === 'player' || o.team === 'own'));
+    if (!bench.length) {
+      list.innerHTML = '<div class="bench-empty">Немає запасних</div>';
+      return;
+    }
+    list.innerHTML = bench.map(o => {
+      const pl = o.playerId ? (s.players || []).find(p => p.id === o.playerId) : null;
+      const readiness = o.readiness != null ? o.readiness : (pl && (pl.readiness != null ? pl.readiness : pl.condition)) || 70;
+      const loadVal = o.load != null ? o.load : (pl && pl.load != null ? pl.load : 0);
+      const ringC = readiness >= 80 ? '#2ecc71' : readiness >= 50 ? '#f1c40f' : '#e74c3c';
+      const loadPct = Math.max(0, Math.min(100, (loadVal / 10) * 100));
+      const bg = o.chipColor || o.color || '';
+      const st = o.status || (pl && pl.status) || '';
+      const inj = st === 'injured' ? '<span class="bench-tag inj">✚</span>' : '';
+      const bgStyle = bg ? 'background:' + bg : '';
+      return '<div class="bench-chip" data-id="' + o.id + '" title="#' + (o.number || '') + ' load ' + loadVal + '">' +
+        '<div class="bench-avatar" style="' + bgStyle + ';box-shadow:0 0 0 2px ' + ringC + '">' +
+        '<span class="bench-num">' + (o.number || '') + '</span></div>' +
+        '<div class="bench-meta"><span class="bench-pos">' + (o.position || (pl && pl.position) || '') + '</span> ' +
+        '<span class="bench-name">' + (o.label || '') + '</span>' + inj + '</div>' +
+        '<div class="bench-load" title="Load"><i style="width:' + loadPct + '%"></i></div></div>';
+    }).join('');
+  },
+
   renderTokens() {
+    this.renderBenchPanel();
     const layer = document.getElementById('playersLayer');
     if (!layer) return;
     const s = Store.get();
@@ -1281,7 +1290,7 @@ const BoardEngine = {
     layer.style.setProperty('--ball-sz', m.ball + 'px');
     const equipTypes = ['cone','mannequin','pole','ladder','minigoal','hoop','flag','bib'];
     const objs = s.activeBoard.objects.filter(o =>
-      o.type === 'player' || o.type === 'opponent' || o.type === 'ball' || equipTypes.includes(o.type)
+      !o.onBench && (o.type === 'player' || o.type === 'opponent' || o.type === 'ball' || equipTypes.includes(o.type))
     );
     const sel = s.activeBoard.selectedId;
     let html = '';
@@ -1371,11 +1380,9 @@ const BoardEngine = {
         return '<span class="pt-badge ' + b.cls + '" title="' + b.title +
           '" style="left:calc(50% + ' + ox.toFixed(1) + 'px);top:calc(50% + ' + oy.toFixed(1) + 'px)">' + b.text + '</span>';
       }).join('');
-      // Індикатор Load (0–10) — знизу-ліворуч на фішці
-      const loadBadge = (loadNum != null && !isNaN(loadNum))
-        ? '<span class="pt-badge pt-load" title="Load ' + loadNum + '/10" style="left:calc(50% - ' + (rPx + 2).toFixed(1) + 'px);top:calc(50% + ' + (rPx * 0.55).toFixed(1) + 'px)">' + Math.round(loadNum) + '</span>'
-        : '';
-      // Позиція + ім'я одним рядком ПІД фішкою (без окремого pt-pos)
+      // Load — кільце навколо фішки (не цифра)
+      const loadBadge = '';
+      // Позиція + ім'я одним рядком ПІД фішкою
       const nameText = o.label || '';
       const label = (nameText || posCode)
         ? `<span class="tn">${posCode ? `<span class="tn-pos">${sanitize(posCode)}</span>` : ''}${nameText ? sanitize(nameText) : ''}</span>`
@@ -1388,13 +1395,18 @@ const BoardEngine = {
         + (isReserve ? ' · резерв' : '');
       const extraCls = (isInjured ? ' injured' : '') + (isRehab ? ' rehab' : '') + (isReserve ? ' reserve' : '') + (isCaptain ? ' captain' : '');
       const readyAttr = readiness != null ? ` data-ready="${Math.round(readiness)}"` : '';
-      const ringShadow = readiness != null
-        ? `box-shadow:0 0 0 3px ${ringColor},0 2px 6px rgba(0,0,0,.45)`
-        : 'box-shadow:0 2px 6px rgba(0,0,0,.45)';
+      // readiness — зовнішнє кільце; load (0-10) — товщина/інтенсивність другого кільця
+      const loadPct = loadNum != null && !isNaN(loadNum) ? Math.max(0, Math.min(10, loadNum)) / 10 : 0;
+      const loadCol = loadPct >= 0.7 ? '#e74c3c' : loadPct >= 0.4 ? '#f1c40f' : '#3498db';
+      const ringShadow = `box-shadow:0 0 0 3px ${ringColor},0 0 0 ${5 + loadPct * 3}px ${loadCol}55,0 2px 6px rgba(0,0,0,.45)`;
+      // SVG load arc (чіткий індикатор навколо фішки)
+      const loadArc = (loadNum != null && !isNaN(loadNum))
+        ? `<svg class="pt-load-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="2.5"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="${loadCol}" stroke-width="2.5" stroke-dasharray="${loadPct * 97.4} 97.4" stroke-linecap="round" transform="rotate(-90 18 18)"/></svg>`
+        : `<svg class="pt-load-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5" fill="none" stroke="${ringColor}" stroke-width="2.5" stroke-dasharray="${(readiness/100)*97.4} 97.4" stroke-linecap="round" transform="rotate(-90 18 18)"/></svg>`;
       // Колір фішки: явний chipColor / fill / color, інакше CSS-клас own/opp/gk
       const customBg = o.chipColor || o.fill || (o.team === 'own' || o.team === 'opp' ? o.color : null);
       const bgStyle = customBg ? `background:${customBg} !important;border-color:rgba(255,255,255,.55);` : '';
-      html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}"${readyAttr} style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px;${ringShadow};${bgStyle}" title="${sanitize(titleName + titleExtra)}">${statusBadge}${loadBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
+      html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}"${readyAttr} style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px;${ringShadow};${bgStyle}" title="${sanitize(titleName + titleExtra)}">${loadArc}${statusBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
     });
     layer.innerHTML = html;
     // Re-bind dblclick / contextmenu without inline handlers

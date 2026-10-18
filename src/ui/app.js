@@ -800,7 +800,7 @@ const App = {
           }
         }
         try { BoardEngine.render(); BoardEngine.renderToolbar(); } catch (_) {}
-        Toast.show(sel ? 'Колір застосовано' : 'Колір малювання: ' + col, 'ok');
+        Toast.show(sel ? 'Колір на виділене' : 'Колір задано — тепер додавайте фішки / схему', 'ok');
         return;
       }
       if (action === 'exit-board') {
