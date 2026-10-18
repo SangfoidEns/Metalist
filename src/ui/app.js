@@ -13,6 +13,7 @@ const App = {
     try { if (typeof AuthManager !== 'undefined') AuthManager.init(); } catch (e) { console.warn('Auth', e); }
     try { BoardEngine.init(); } catch (e) { console.warn('board', e); }
     const view = (Store.get().ui && Store.get().ui.view) || 'dashboard';
+    if (view === 'board') this.allowBoardOnce('logo');
     this.navigate(view);
     this.updateClock();
     setInterval(() => this.updateClock(), 1000);
@@ -50,8 +51,10 @@ const App = {
       const cur = this.currentView || 'dashboard';
       const i = order.indexOf(cur);
       if (i < 0) return;
-      if (dx < 0 && i < order.length - 1) this.navigate(order[i + 1]);
-      else if (dx > 0 && i > 0) this.navigate(order[i - 1]);
+      const next = dx < 0 && i < order.length - 1 ? order[i + 1] : (dx > 0 && i > 0 ? order[i - 1] : null);
+      if (!next) return;
+      if (next === 'board') this.allowBoardOnce('explicit');
+      this.navigate(next);
     }, { passive: true });
   },
 
@@ -212,7 +215,7 @@ const App = {
       }
       const s = Store.get();
       if (!s || !s.activeBoard) {
-        this.navigate('board');
+        this.allowBoardOnce('logo'); this.navigate('board');
         return;
       }
       const defName = (s.settings && s.settings.defaultScheme) || '4-3-3';
@@ -225,7 +228,7 @@ const App = {
       } else if (typeof BoardEngine !== 'undefined' && typeof BoardEngine.applyScheme === 'function') {
         try { BoardEngine.applyScheme(defName); } catch (e) { console.warn('[scheme]', e); }
       }
-      this.navigate('board');
+      this.allowBoardOnce('logo'); this.navigate('board');
       setTimeout(() => {
         try {
           if (BoardEngine.render) BoardEngine.render();
@@ -236,7 +239,7 @@ const App = {
       try { Toast.show('Дошка · ' + defName, 'ok'); } catch (_) {}
     } catch (e) {
       console.error('[openDefaultBoard]', e);
-      try { this.navigate('board'); } catch (_) {}
+      try { this.allowBoardOnce('logo'); this.navigate('board'); } catch (_) {}
     }
   },
 
@@ -459,6 +462,11 @@ const App = {
     });
   },
 
+  /** Дозволені причини переходу на дошку */
+  _boardNavReasons: new Set(['logo', 'scheme', 'board-tpl', 'special', 'load-board', 'load-myex', 'load-diary', 'b3-phase', 'explicit']),
+  allowBoardOnce(reason) {
+    this._boardNavToken = reason || 'explicit';
+  },
   navigate(view) {
     // iOS: після file picker focus може «клікнути» логотип — блокуємо
     try {
@@ -469,6 +477,16 @@ const App = {
         }
       }
     } catch (_) {}
+    // Дошка лише з явним allowBoardOnce(reason)
+    if (view === 'board') {
+      const token = this._boardNavToken;
+      this._boardNavToken = null;
+      if (!token || !this._boardNavReasons || !this._boardNavReasons.has(token)) {
+        console.warn('[navigate] board blocked — missing allow token', token);
+        return;
+      }
+    }
+    try { this.toggleMobileSidebar(false); } catch (_) {}
     Store.get().ui.view = view;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
     const el = document.getElementById('v-' + view);
@@ -594,6 +612,16 @@ const App = {
     try { this.bindLogoAndImport(); } catch (e) { console.warn(e); }
     try { this.bindEdgeSwipeDrawer(); } catch (e) { console.warn(e); }
 
+
+    // Capture-phase: тренування / CRUD ніколи не пробиваються до випадкового board
+    document.addEventListener('click', e => {
+      const block = e.target.closest('[data-edit-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],.card-training,#modal,.md');
+      if (!block) return;
+      // не блокуємо сам логотип
+      if (e.target.closest('#club-logo-btn,[data-action="open-default-board"]')) return;
+      e.stopPropagation();
+    }, true);
+
     // Event delegation — single listener
     document.addEventListener('click', e => {
       // ── Ізоляція: кліки всередині модалки / меню не повинні «випадково» відкривати дошку ──
@@ -712,6 +740,7 @@ const App = {
       if (action === 'extimer-reset') return TimerEngine.resetEx();
       if (action === 'toggle-present') {
         document.body.classList.toggle('present-mode');
+        App.allowBoardOnce('explicit');
         App.navigate('board');
         Toast.show(document.body.classList.contains('present-mode') ? 'Presentation ON' : 'Presentation OFF');
         return;
@@ -783,28 +812,31 @@ const App = {
       if (action === 'open-training-board') {
         e.preventDefault(); e.stopPropagation();
         Modal.close();
+        App.allowBoardOnce('explicit');
         return App.openDefaultBoard();
       }
       if (t.dataset.delTraining) return Modal.confirm('Видалити тренування?', () => { Store.get().trainings = Store.get().trainings.filter(x => x.id !== t.dataset.delTraining); StorageManager.save(); App.renderCurrent(); Toast.show('Видалено'); });
       if (t.dataset.dupTraining) return Actions.dupTraining(t.dataset.dupTraining);
       if (t.dataset.editPlayer) return Actions.editPlayer(t.dataset.editPlayer);
       if (t.dataset.delPlayer) return Modal.confirm('Видалити гравця?', () => { Store.get().players = Store.get().players.filter(x => x.id !== t.dataset.delPlayer); StorageManager.save(); App.renderCurrent(); });
-      if (t.dataset.scheme) { BoardEngine.applyScheme(t.dataset.scheme); App.navigate('board'); return; }
+      if (t.dataset.scheme) { BoardEngine.applyScheme(t.dataset.scheme); App.allowBoardOnce('scheme'); App.navigate('board'); return; }
       if (t.dataset.boardTpl) {
         BoardEngine.applyScheme(t.dataset.boardTpl);
+        App.allowBoardOnce('board-tpl');
         App.navigate('board');
         Toast.show('Шаблон відкрито на дошці — можна змінювати', 'ok');
         return;
       }
       if (t.dataset.b3Phase) {
         BoardEngine.applyScheme(t.dataset.b3Phase);
+        App.allowBoardOnce('b3-phase');
         App.navigate('board');
         Toast.show('Фаза: ' + (t.dataset.b3Name || t.dataset.b3Phase), 'ok');
         return;
       }
       if (t.dataset.b3Rot) {
-        Toast.show('Ротація: ' + t.dataset.b3Rot + ' — розставте на дошці', 'ok');
-        App.navigate('board');
+        Toast.show('Ротація: ' + t.dataset.b3Rot + ' — відкрийте дошку через логотип', 'ok');
+        return;
         return;
       }
       if (t.dataset.delMyex) {
@@ -841,6 +873,7 @@ const App = {
         if (ex && ex.board) {
           Store.get().activeBoard.objects = JSON.parse(JSON.stringify(ex.board.objects || []));
           BoardEngine.render();
+          App.allowBoardOnce('load-myex');
           App.navigate('board');
           Toast.show('Дошка вправи завантажена');
         }
@@ -858,6 +891,7 @@ const App = {
         if (d && d.board) {
           Store.get().activeBoard.objects = JSON.parse(JSON.stringify(d.board.objects || []));
           BoardEngine.render();
+          App.allowBoardOnce('load-diary');
           App.navigate('board');
         }
         return;
@@ -875,6 +909,7 @@ const App = {
         if (anim && anim.board) {
           Store.get().activeBoard.objects = JSON.parse(JSON.stringify(anim.board.objects || []));
           BoardEngine.render();
+          App.allowBoardOnce('explicit');
           App.navigate('board');
           BoardEngine.animPlay && BoardEngine.animPlay();
           Toast.show('Анімація: ' + (anim.name || ''), 'ok');
@@ -882,7 +917,7 @@ const App = {
         return;
       }
 
-      if (t.dataset.loadBoard) return BoardEngine.loadBoard(t.dataset.loadBoard);
+      if (t.dataset.loadBoard) { App.allowBoardOnce('load-board'); return BoardEngine.loadBoard(t.dataset.loadBoard); }
       if (t.dataset.delBoard) return Modal.confirm('Видалити схему?', () => { Store.get().boards = Store.get().boards.filter(x => x.id !== t.dataset.delBoard); StorageManager.save(); App.renderCurrent(); });
       if (t.dataset.special) {
         const map = {
@@ -890,6 +925,7 @@ const App = {
           setpiece: '4-4-2', transition: '4-1-4-1', highpress: '3-4-3'
         };
         BoardEngine.applyScheme(map[t.dataset.special] || '4-3-3');
+        App.allowBoardOnce('special');
         App.navigate('board');
         Toast.show('Схема: ' + (t.dataset.special || ''), 'ok');
         return;
@@ -904,6 +940,7 @@ const App = {
       if (t.dataset.modalAction === 'open-training-board') {
         e.preventDefault(); e.stopPropagation();
         Modal.close();
+        App.allowBoardOnce('logo');
         return App.openDefaultBoard();
       }
       if (t.dataset.modalAction === 'confirm') {

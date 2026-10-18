@@ -219,7 +219,7 @@ const BoardEngine = {
     this.isBoardOnly = true;
     document.body.classList.add('board-fs-nav');
     document.body.classList.add('board-only-mode');
-    App.navigate('board');
+    if (typeof App !== 'undefined') { App.allowBoardOnce && App.allowBoardOnce('load-board'); App.navigate('board'); };
     // Telegram Mini App fullscreen (if available)
     if (typeof TelegramManager !== 'undefined' && TelegramManager.isTelegram) {
       TelegramManager.requestFullscreen();
@@ -777,7 +777,7 @@ const BoardEngine = {
     s.activeBoard.objects = JSON.parse(JSON.stringify(b.objects));
     if (b.camera) this.camera = Object.assign({}, b.camera);
     this.pushHistory();
-    App.navigate('board');
+    if (typeof App !== 'undefined') { App.allowBoardOnce && App.allowBoardOnce('load-board'); App.navigate('board'); };
     this.render();
     Toast.show('Завантажено: ' + b.name, 'ok');
   },
@@ -1261,12 +1261,13 @@ const BoardEngine = {
       else if (isReserve) radialItems.push({ cls: 'pt-res', text: 'R', title: 'Резерв' });
       const nBadge = radialItems.length;
       const statusBadge = radialItems.map((b, i) => {
-        // angle від вершини, рівномірно по колу (або сектор якщо 1–2)
         const total = Math.max(nBadge, 1);
-        const angle = (i * (2 * Math.PI / total)) - Math.PI / 2;
-        const offset = 1.15; // R * offset від центру (трохи поза краєм)
-        const left = 50 + 50 * offset * Math.cos(angle);
-        const top = 50 + 50 * offset * Math.sin(angle);
+        // старт з верхнього правого квадранта, крок по колу
+        const base = -Math.PI / 4; // -45°
+        const angle = base + (i * (2 * Math.PI / Math.max(total, 4)));
+        const dist = 1.12; // множник радіуса від центру фішки
+        const left = 50 + 50 * dist * Math.cos(angle);
+        const top = 50 + 50 * dist * Math.sin(angle);
         return '<span class="pt-badge ' + b.cls + '" title="' + b.title +
           '" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(2) + '%">' + b.text + '</span>';
       }).join('');

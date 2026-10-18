@@ -371,6 +371,10 @@ const Actions = {
   editPlayer(id) {
     const p = Store.get().players.find(x => x.id === id);
     if (!p) return;
+    const st = p.status || 'available';
+    const stHealthy = (st === 'available' || st === 'healthy');
+    const stInj = (st === 'injured');
+    const stRehab = (st === 'rehab' || st === 'recovery');
     Modal.open('Редагування гравця', `
       <div class="fg">
         <div class="fgr"><label>Ім\'я</label><input id="peF" value="${sanitize(p.firstName)}"></div>
@@ -378,9 +382,17 @@ const Actions = {
         <div class="fgr"><label>Номер</label><input type="number" id="peN" value="${p.number}"></div>
         <div class="fgr"><label>Позиція</label><select id="peP">${['GK','CB','LB','RB','DM','CM','AM','LW','RW','ST'].map(pos=>`<option ${p.position===pos?'selected':''}>${pos}</option>`).join('')}</select></div>
         <div class="fgr"><label>Вік</label><input type="number" id="peA" value="${p.age}"></div>
-        <div class="fgr"><label>Статус</label><select id="peS">
-          ${['available','injured','recovery','suspended','individual','unavailable'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}
+        <div class="fgr"><label>Статус здоров\'я</label><select id="peS">
+          <option value="available" ${stHealthy?'selected':''}>Здоровий</option>
+          <option value="injured" ${stInj?'selected':''}>Травмований</option>
+          <option value="rehab" ${stRehab?'selected':''}>Відновлення</option>
+          <option value="suspended" ${st==='suspended'?'selected':''}>Дискваліфікація</option>
+          <option value="unavailable" ${st==='unavailable'?'selected':''}>Недоступний</option>
         </select></div>
+        <div class="fgr full"><label class="chk-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="peCap" ${p.isCaptain?'checked':''} style="width:18px;height:18px">
+          <span><strong>Капітан команди (C)</strong></span>
+        </label></div>
         <div class="fgr"><label>Стан %</label><input type="number" id="peC" value="${p.condition}"></div>
         <div class="fgr"><label>Готовність %</label><input type="number" id="peR" value="${p.readiness}"></div>
         <div class="fgr"><label>Load (0-10)</label><input type="number" id="peLoad" value="${p.load||0}" min="0" max="10"></div>
