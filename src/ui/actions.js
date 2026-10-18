@@ -506,7 +506,7 @@ const Actions = {
         <strong>Coaching Points:</strong> ${sanitize(e.coachingPoints || '—')}
       </p>
       <div class="fa">
-        <button class="btn btn-p btn-sm" data-action="close-modal" onclick="BoardEngine.applyScheme('4-3-3');Modal.close();App.navigate('board')">OPEN ON BOARD</button>
+        <button class="btn btn-p btn-sm" data-action="close-modal" onclick="BoardEngine.applyScheme('4-3-3');Modal.close();Toast.show('Схему застосовано. Відкрийте дошку через логотип.','ok')">OPEN ON BOARD</button>
         <button class="btn btn-d btn-sm" data-del-ex="${e.id}">Видалити</button>
       </div>`, [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
     document.getElementById('modalBody').querySelector('[data-del-ex]')?.addEventListener('click', () => {
@@ -576,7 +576,7 @@ const Actions = {
       { label: 'На дошку', cls: 'btn-p', action: 'cancel' }
     ]);
     const btn = document.querySelector('#modalFooter .btn-p');
-    if (btn) btn.onclick = () => { if (m.scheme) BoardEngine.applyScheme(m.scheme); Modal.close(); App.navigate('board'); };
+    if (btn) btn.onclick = () => { if (m.scheme) BoardEngine.applyScheme(m.scheme); Modal.close(); Toast.show('Схему застосовано. Відкрийте дошку через логотип.','ok'); };
   },
 
   newEvent() {

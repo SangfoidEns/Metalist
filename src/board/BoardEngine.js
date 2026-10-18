@@ -219,7 +219,7 @@ const BoardEngine = {
     this.isBoardOnly = true;
     document.body.classList.add('board-fs-nav');
     document.body.classList.add('board-only-mode');
-    if (typeof App !== 'undefined') { App.allowBoardOnce && App.allowBoardOnce('load-board'); App.navigate('board'); };
+    // Не перемикаємо роутер — fullscreen лише якщо вже на дошці
     // Telegram Mini App fullscreen (if available)
     if (typeof TelegramManager !== 'undefined' && TelegramManager.isTelegram) {
       TelegramManager.requestFullscreen();
@@ -777,8 +777,8 @@ const BoardEngine = {
     s.activeBoard.objects = JSON.parse(JSON.stringify(b.objects));
     if (b.camera) this.camera = Object.assign({}, b.camera);
     this.pushHistory();
-    if (typeof App !== 'undefined') { App.allowBoardOnce && App.allowBoardOnce('load-board'); App.navigate('board'); };
     this.render();
+    try { Toast.show('Сцену завантажено в activeBoard. Відкрийте дошку через логотип.', 'ok'); } catch (_) {}
     Toast.show('Завантажено: ' + b.name, 'ok');
   },
 
@@ -1260,14 +1260,16 @@ const BoardEngine = {
       else if (isRehab) radialItems.push({ cls: 'pt-rehab', text: '↻', title: 'Відновлення' });
       else if (isReserve) radialItems.push({ cls: 'pt-res', text: 'R', title: 'Резерв' });
       const nBadge = radialItems.length;
+      const rPx = m.player / 2;
       const statusBadge = radialItems.map((b, i) => {
         const total = Math.max(nBadge, 1);
-        // старт з верхнього правого квадранта, крок по колу
-        const base = -Math.PI / 4; // -45°
+        const base = -Math.PI / 4;
         const angle = base + (i * (2 * Math.PI / Math.max(total, 4)));
-        const dist = 1.12; // множник радіуса від центру фішки
-        const left = 50 + 50 * dist * Math.cos(angle);
-        const top = 50 + 50 * dist * Math.sin(angle);
+        // r = R + 6px offset; center at 50%/50%; badge center = center + r*cos/sin
+        // as % of chip size (size = 2R): 50 + ((R+6)/R)*50*cos
+        const k = (rPx + 6) / Math.max(rPx, 1);
+        const left = 50 + 50 * k * Math.cos(angle);
+        const top = 50 + 50 * k * Math.sin(angle);
         return '<span class="pt-badge ' + b.cls + '" title="' + b.title +
           '" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(2) + '%">' + b.text + '</span>';
       }).join('');
@@ -1280,7 +1282,6 @@ const BoardEngine = {
         + (isReserve ? ' · резерв' : '');
       const label = o.label ? `<span class="tn">${sanitize(o.label)}</span>` : '';
       const extraCls = (isInjured ? ' injured' : '') + (isRehab ? ' rehab' : '') + (isReserve ? ' reserve' : '') + (isCaptain ? ' captain' : '');
-      const rPx = m.player / 2;
       html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}" style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px" title="${sanitize(titleName + titleExtra)}">${ring}${statusBadge}${posBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
     });
     layer.innerHTML = html;

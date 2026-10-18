@@ -3282,3 +3282,33 @@ body.sb-open .app > .main {
   z-index: 3;
   text-shadow: 0 1px 2px #000;
 }
+
+/* ── Modal above board toolbar & everything ── */
+#modal,
+.mo,
+.modal-overlay {
+  z-index: 999999 !important;
+  pointer-events: auto !important;
+  position: fixed !important;
+  inset: 0 !important;
+}
+#modal .md,
+.mo .md,
+.modal-content {
+  z-index: 1000000 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+}
+#modal button,
+.mo button,
+.md button,
+#modalFooter button {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 1000001 !important;
+}
+/* Board toolbar below modals */
+#boardToolbar,
+.btb {
+  z-index: 5000 !important;
+}
