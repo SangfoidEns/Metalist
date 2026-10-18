@@ -3,7 +3,7 @@ const Views = {
   dashboard() {
     const s = Store.get();
     const avail = s.players.filter(p => p.status === 'available').length;
-    const injured = s.players.filter(p => p.status === 'injured' || p.status === 'recovery').length;
+    const injured = s.players.filter(p => p.status === 'injured' || p.status === 'recovery' || p.status === 'rehab').length;
     const next = s.trainings.filter(t => t.status === 'planned' && t.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     const weekLoad = LoadModel.weeklyLoad(s.trainings);
     const totalHours = Math.round(s.trainings.reduce((a, t) => a + (t.duration || 0), 0) / 60 * 10) / 10;
@@ -103,9 +103,11 @@ const Views = {
         <input type="search" id="plSearch" placeholder="Пошук..." data-filter="players">
         <select id="plPos" data-filter="players"><option value="">Всі позиції</option>${['GK','CB','LB','RB','DM','CM','AM','LW','RW','ST'].map(p=>`<option>${p}</option>`).join('')}</select>
         <select id="plSt" data-filter="players"><option value="">Всі статуси</option>
-          <option value="available">Available</option><option value="injured">Injured</option>
-          <option value="recovery">Recovery</option><option value="suspended">Suspended</option>
-          <option value="individual">Individual</option><option value="unavailable">Unavailable</option>
+          <option value="available">Здоровий</option>
+          <option value="injured">Травмований</option>
+          <option value="rehab">Відновлення</option>
+          <option value="suspended">Дискваліфікація</option>
+          <option value="unavailable">Недоступний</option>
         </select>
         <select id="plGr" data-filter="players"><option value="">Всі групи</option>
           <option value="main">Основний</option><option value="reserve">Резерв</option>
@@ -121,14 +123,22 @@ const Views = {
 
   _plRows(list) {
     if (!list.length) return '<tr><td colspan="9" style="text-align:center;color:var(--muted)">Немає гравців</td></tr>';
+    const statusLabel = (st) => ({
+      available: 'Здоровий', healthy: 'Здоровий', injured: 'Травмований',
+      rehab: 'Відновлення', recovery: 'Відновлення', suspended: 'Дискваліфікація',
+      unavailable: 'Недоступний', individual: 'Індивідуально'
+    })[st] || st;
     return list.map(p => {
-      const bc = p.status === 'available' ? 'b-ok' : (p.status === 'injured' ? 'b-d' : 'b-w');
+      const st = p.status || 'available';
+      const bc = (st === 'available' || st === 'healthy') ? 'b-ok' : (st === 'injured' ? 'b-d' : 'b-w');
       const lc = (p.load || 0) < 4 ? 'll' : (p.load || 0) < 7 ? 'lm' : 'lh';
+      const cap = p.isCaptain ? ' <span class="player-cap-tag">C</span>' : '';
+      const inj = (st === 'injured') ? ' <span class="player-inj-ico" title="Травма">✚</span>' : '';
       return `<tr>
         <td><span class="pn ${p.position === 'GK' ? 'gk' : ''}">${p.number}</span></td>
-        <td>${sanitize(p.firstName)} ${sanitize(p.lastName)}</td>
+        <td>${sanitize(p.firstName)} ${sanitize(p.lastName)}${cap}${inj}</td>
         <td>${p.position}</td><td>${p.age}</td>
-        <td><span class="badge ${bc}">${p.status}</span></td>
+        <td><span class="badge ${bc}">${statusLabel(st)}</span></td>
         <td>${p.condition}%</td><td>${p.readiness}%</td>
         <td><div class="lb2"><div class="lbf ${lc}" style="width:${(p.load || 0) * 10}%"></div></div></td>
         <td>

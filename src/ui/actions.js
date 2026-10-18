@@ -225,8 +225,8 @@ const Actions = {
         }).join('')}
       </div>`, [
       { label: 'Скасувати', cls: 'btn-s', action: 'cancel' },
-      { label: 'На дошку', cls: 'btn-s', action: 'cancel' },
-      { label: 'Зберегти', cls: 'btn-p', action: 'save-training', /* tid via dataset */ }
+      { label: 'На дошку', cls: 'btn-s', action: 'open-training-board' },
+      { label: 'Зберегти', cls: 'btn-p', action: 'save-training' }
     ]);
     // attach tid
     const saveBtn = document.querySelector('[data-modal-action="save-training"]');
@@ -234,6 +234,7 @@ const Actions = {
 
     // block actions via delegation on modal
     document.getElementById('modalBody').onclick = e => {
+      e.stopPropagation();
       const ab = e.target.closest('[data-add-block]');
       if (ab) {
         const [tid, name, dur] = ab.dataset.addBlock.split(':');
@@ -324,13 +325,16 @@ const Actions = {
         <div class="fgr"><label>Позиція</label><select id="plP">${['GK','CB','LB','RB','DM','CM','AM','LW','RW','ST'].map(p=>`<option>${p}</option>`).join('')}</select></div>
         <div class="fgr"><label>Вік</label><input type="number" id="plA" value="24"></div>
         <div class="fgr"><label>Статус</label><select id="plS">
-          <option value="available">Available</option><option value="injured">Injured</option>
-          <option value="recovery">Recovery</option><option value="suspended">Suspended</option>
-          <option value="individual">Individual</option><option value="unavailable">Unavailable</option>
+          <option value="available">Здоровий</option>
+          <option value="injured">Травмований</option>
+          <option value="rehab">Відновлення</option>
+          <option value="suspended">Дискваліфікація</option>
+          <option value="unavailable">Недоступний</option>
         </select></div>
         <div class="fgr"><label>Стан %</label><input type="number" id="plC" value="90" min="0" max="100"></div>
         <div class="fgr"><label>Готовність %</label><input type="number" id="plR" value="95" min="0" max="100"></div>
         <div class="fgr"><label>Група</label><select id="plG"><option value="main">Основний</option><option value="reserve">Резерв</option><option value="gk">Воротарі</option></select></div>
+        <div class="fgr full"><label class="chk-label"><input type="checkbox" id="plCap"> Капітан команди</label></div>
         <div class="fgr full"><label>Примітки</label><textarea id="plNo"></textarea></div>
       </div>`, [
       { label: 'Скасувати', cls: 'btn-s', action: 'cancel' },
@@ -342,12 +346,17 @@ const Actions = {
     const firstName = document.getElementById('plF')?.value?.trim();
     const lastName = document.getElementById('plL')?.value?.trim();
     if (!firstName && !lastName) { Toast.show('Вкажіть ім\'я', 'warn'); return; }
+    const st = document.getElementById('plS')?.value || 'available';
+    const status = st === 'healthy' ? 'available' : (st === 'recovery' ? 'rehab' : st);
+    const isCaptain = !!document.getElementById('plCap')?.checked;
+    if (isCaptain) Store.get().players.forEach(x => { x.isCaptain = false; });
     Store.get().players.push({
       id: uid(), firstName, lastName,
       number: +document.getElementById('plN')?.value || 99,
       position: document.getElementById('plP')?.value || 'CM',
       secondaryPositions: [], age: +document.getElementById('plA')?.value || 20,
-      status: document.getElementById('plS')?.value || 'available',
+      status,
+      isCaptain,
       condition: +document.getElementById('plC')?.value || 90,
       readiness: +document.getElementById('plR')?.value || 90,
       load: 0, notes: document.getElementById('plNo')?.value || '',
@@ -398,11 +407,28 @@ const Actions = {
     p.position = document.getElementById('peP')?.value || p.position;
     p.age = +document.getElementById('peA')?.value || p.age;
     p.status = document.getElementById('peS')?.value || p.status;
+    if (p.status === 'healthy') p.status = 'available';
+    if (p.status === 'recovery') p.status = 'rehab';
     p.condition = +document.getElementById('peC')?.value ?? p.condition;
     p.readiness = +document.getElementById('peR')?.value ?? p.readiness;
     p.load = +document.getElementById('peLoad')?.value ?? p.load;
     p.group = document.getElementById('peG')?.value || p.group;
     p.notes = document.getElementById('peNo')?.value || '';
+    const wantCap = !!document.getElementById('peCap')?.checked;
+    if (wantCap) {
+      Store.get().players.forEach(x => { x.isCaptain = (x.id === p.id); });
+    } else {
+      p.isCaptain = false;
+    }
+    try {
+      (Store.get().activeBoard.objects || []).forEach(o => {
+        if (o.playerId === p.id) {
+          o.status = p.status;
+          o.isCaptain = !!p.isCaptain;
+        }
+        if (wantCap && o.playerId && o.playerId !== p.id) o.isCaptain = false;
+      });
+    } catch (_) {}
     StorageManager.save();
     Modal.close();
     Toast.show('Збережено', 'ok');

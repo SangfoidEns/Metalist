@@ -746,6 +746,7 @@ const BoardEngine = {
         readiness: roster ? (roster.readiness != null ? roster.readiness : roster.condition) : null,
         position: roster ? roster.position : null,
         status: roster ? roster.status : null,
+        isCaptain: roster ? !!roster.isCaptain : false,
         rotation: 0, locked: false, visible: true
       });
     });
@@ -1249,16 +1250,33 @@ const BoardEngine = {
       const posCode = o.position || (pl && pl.position) || (o.team === 'opp' ? '' : '');
       const status = o.status || (pl && pl.status) || '';
       const isInjured = status === 'injured';
+      const isRehab = status === 'rehab' || status === 'recovery';
       const isReserve = status === 'reserve' || (pl && pl.group === 'reserve');
-      const statusBadge = isInjured
-        ? '<span class="pt-badge pt-inj" title="Травма">✚</span>'
-        : (isReserve ? '<span class="pt-badge pt-res" title="Резерв">R</span>' : '');
+      const isCaptain = !!(o.isCaptain || (pl && pl.isCaptain));
+      // Бейджі відносно радіуса фішки (R = 50% width): позиції у % від розміру фішки
+      const badges = [];
+      if (isCaptain) {
+        badges.push('<span class="pt-badge pt-cap" title="Капітан" style="left:85%;top:15%">C</span>');
+      }
+      if (isInjured) {
+        badges.push('<span class="pt-badge pt-inj" title="Травмований" style="left:85%;top:85%">✚</span>');
+      } else if (isRehab) {
+        badges.push('<span class="pt-badge pt-rehab" title="Відновлення" style="left:85%;top:85%">↻</span>');
+      } else if (isReserve) {
+        badges.push('<span class="pt-badge pt-res" title="Резерв" style="left:85%;top:85%">R</span>');
+      }
+      const statusBadge = badges.join('');
       const posBadge = posCode ? `<span class="pt-pos">${sanitize(posCode)}</span>` : '';
       const titleName = (o.label || ('#' + (o.number || ''))) + (posCode ? ' · ' + posCode : '');
-      const titleExtra = (readiness != null ? ` · готовність ${readiness}%` : '') + (isInjured ? ' · ТРАВМА' : '') + (isReserve ? ' · резерв' : '');
+      const titleExtra = (readiness != null ? ` · готовність ${readiness}%` : '')
+        + (isCaptain ? ' · КАПІТАН' : '')
+        + (isInjured ? ' · ТРАВМА' : '')
+        + (isRehab ? ' · ВІДНОВЛЕННЯ' : '')
+        + (isReserve ? ' · резерв' : '');
       const label = o.label ? `<span class="tn">${sanitize(o.label)}</span>` : '';
-      const extraCls = (isInjured ? ' injured' : '') + (isReserve ? ' reserve' : '');
-      html += `<div class="${cls}${extraCls}" data-id="${o.id}" style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px" title="${sanitize(titleName + titleExtra)}">${ring}${statusBadge}${posBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
+      const extraCls = (isInjured ? ' injured' : '') + (isRehab ? ' rehab' : '') + (isReserve ? ' reserve' : '') + (isCaptain ? ' captain' : '');
+      const rPx = m.player / 2;
+      html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}" style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px" title="${sanitize(titleName + titleExtra)}">${ring}${statusBadge}${posBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
     });
     layer.innerHTML = html;
     // Re-bind dblclick / contextmenu without inline handlers

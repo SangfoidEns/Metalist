@@ -3145,3 +3145,72 @@ body.sb-open .app > .main {
 #mobileNav[hidden] {
   display: none !important;
 }
+
+/* ── Relative chip badges (R-based, scale with chip size) ── */
+#playersLayer .pt {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+#playersLayer .pt .pt-num {
+  position: relative;
+  z-index: 2;
+  line-height: 1;
+  font-weight: 800;
+  pointer-events: none;
+}
+#playersLayer .pt .pt-badge {
+  position: absolute !important;
+  z-index: 5;
+  width: calc(var(--pt-r, 17px) * 0.72);
+  height: calc(var(--pt-r, 17px) * 0.72);
+  min-width: 12px;
+  min-height: 12px;
+  border-radius: 50%;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: max(7px, calc(var(--pt-r, 17px) * 0.42));
+  font-weight: 800;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,.45);
+  border: 1.5px solid rgba(255,255,255,.85);
+}
+#playersLayer .pt .pt-cap {
+  background: #c8a84b !important;
+  color: #1a1a1a !important;
+}
+#playersLayer .pt .pt-inj {
+  background: #e74c3c !important;
+  color: #fff !important;
+}
+#playersLayer .pt .pt-rehab {
+  background: #f39c12 !important;
+  color: #1a1a1a !important;
+}
+#playersLayer .pt .pt-res {
+  background: #7f8c8d !important;
+  color: #fff !important;
+}
+#playersLayer .pt.captain {
+  box-shadow: 0 0 0 2px rgba(200, 168, 75, 0.85), 0 2px 6px rgba(0,0,0,.5);
+}
+#playersLayer .pt.rehab {
+  box-shadow: 0 0 0 2px #f39c12 !important;
+}
+.player-cap-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  background: #c8a84b;
+  color: #1a1a1a;
+}
+.player-inj-ico {
+  color: #e74c3c;
+  font-weight: 800;
+  margin-left: 4px;
+}

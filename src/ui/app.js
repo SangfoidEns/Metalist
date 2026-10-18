@@ -596,11 +596,15 @@ const App = {
 
     // Event delegation — single listener
     document.addEventListener('click', e => {
+      // ── Ізоляція: кліки всередині модалки / меню не повинні «випадково» відкривати дошку ──
+      const inModal = e.target.closest('#modal, .md, .modal-content, #modalBody, #modalFooter');
+      const inSidebarNav = e.target.closest('#sidebar .nav, .sidebar .nav, .sb-scroll');
+
       const t = e.target.closest('[data-action],[data-view],[data-tool],[data-ai],[data-edit-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],[data-scheme],[data-load-board],[data-del-board],[data-special],[data-day],[data-view-exercise],[data-view-match],[data-del-match],[data-tpl],[data-modal-action],[data-b3-phase],[data-board-tpl],[data-b3-rot],[data-del-myex],[data-add-myex-tr],[data-load-myex-board],[data-del-diary],[data-edit-diary],[data-load-diary-board],[data-diary-filter],[data-play-anim]');
       if (!t) {
         // close search
         if (!e.target.closest('.gs')) document.getElementById('gResults')?.classList.remove('show');
-        // close modal on backdrop
+        // close modal on backdrop only
         if (e.target.id === 'modal') Modal.close();
         return;
       }
@@ -608,7 +612,25 @@ const App = {
       const action = t.dataset.action;
       const view = t.dataset.view;
 
-      if (view && !t.dataset.action) { e.preventDefault(); App.navigate(view); return; }
+      // Редагування / CRUD — ніколи не відкривають дошку через data-view батька
+      if (t.dataset.editTraining || t.dataset.delTraining || t.dataset.dupTraining ||
+          t.dataset.editPlayer || t.dataset.delPlayer || t.dataset.editDiary ||
+          t.dataset.delDiary || t.dataset.delMyex || t.dataset.delMatch ||
+          t.dataset.delBoard || t.dataset.modalAction) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      // data-view навігація: блокуємо, якщо це вкладений клік у кнопці редагування
+      if (view && !t.dataset.action) {
+        if (e.target.closest('[data-edit-training],[data-del-training],[data-dup-training],[data-edit-player],[data-modal-action]')) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        App.navigate(view);
+        return;
+      }
       if (t.dataset.tool) { Store.get().activeBoard.tool = t.dataset.tool; BoardEngine.renderToolbar(); return; }
       if (t.dataset.ai) {
         const map = { training: () => AIService.generateTraining(), warmup: () => AIService.generateExercise('warmup'),
@@ -751,7 +773,15 @@ const App = {
       if (action === 'microcycle') return Actions.applyMicrocycle();
       if (action === 'export-stats') return StorageManager.exportJSON();
 
-      if (t.dataset.editTraining) return Actions.editTraining(t.dataset.editTraining);
+      if (t.dataset.editTraining) {
+        e.preventDefault(); e.stopPropagation();
+        return Actions.editTraining(t.dataset.editTraining);
+      }
+      if (action === 'open-training-board') {
+        e.preventDefault(); e.stopPropagation();
+        Modal.close();
+        return App.openDefaultBoard();
+      }
       if (t.dataset.delTraining) return Modal.confirm('Видалити тренування?', () => { Store.get().trainings = Store.get().trainings.filter(x => x.id !== t.dataset.delTraining); StorageManager.save(); App.renderCurrent(); Toast.show('Видалено'); });
       if (t.dataset.dupTraining) return Actions.dupTraining(t.dataset.dupTraining);
       if (t.dataset.editPlayer) return Actions.editPlayer(t.dataset.editPlayer);
@@ -868,6 +898,11 @@ const App = {
       if (t.dataset.tpl) return Actions.applyTemplate(t.dataset.tpl);
 
       if (t.dataset.modalAction === 'cancel') return Modal.close();
+      if (t.dataset.modalAction === 'open-training-board') {
+        e.preventDefault(); e.stopPropagation();
+        Modal.close();
+        return App.openDefaultBoard();
+      }
       if (t.dataset.modalAction === 'confirm') {
         const fn = Modal._onConfirm;
         Modal.close();
