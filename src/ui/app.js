@@ -775,11 +775,32 @@ const App = {
         }
         return;
       }
-      if (action === 'set-draw-color') {
-        const col = t.dataset.color || '#f1c40f';
-        Store.get().activeBoard.drawColor = col;
+      if (action === 'toggle-palette') {
+        e.preventDefault(); e.stopPropagation();
+        const ab = Store.get().activeBoard;
+        ab.paletteOpen = !ab.paletteOpen;
         try { BoardEngine.renderToolbar(); } catch (_) {}
-        Toast.show('Колір стрілки', 'ok');
+        return;
+      }
+      if (action === 'set-draw-color') {
+        e.preventDefault(); e.stopPropagation();
+        const col = t.dataset.color || '#f1c40f';
+        const ab = Store.get().activeBoard;
+        ab.drawColor = col;
+        // Застосувати до виділеного об'єкта (стрілка, зона, фішка своєї/чужої команди)
+        const sel = ab.selectedId;
+        if (sel) {
+          const obj = (ab.objects || []).find(o => o.id === sel);
+          if (obj) {
+            obj.color = col;
+            if (obj.type === 'player' || obj.team === 'own' || obj.team === 'opp' || obj.number != null) {
+              obj.chipColor = col;
+              obj.fill = col;
+            }
+          }
+        }
+        try { BoardEngine.render(); BoardEngine.renderToolbar(); } catch (_) {}
+        Toast.show(sel ? 'Колір застосовано' : 'Колір малювання: ' + col, 'ok');
         return;
       }
       if (action === 'exit-board') {

@@ -1294,38 +1294,43 @@ const BoardEngine = {
       const isRehab = status === 'rehab' || status === 'recovery';
       const isReserve = status === 'reserve' || (pl && pl.group === 'reserve');
       const isCaptain = !!(o.isCaptain || (pl && pl.isCaptain));
-      // Радіальні бейджі: центр фішки = (50%,50%), R у % ширини фішки
+      // Бейджі ТІЛЬКИ зверху фішки (не перекривають ім'я знизу)
       const radialItems = [];
       if (isCaptain) radialItems.push({ cls: 'pt-cap', text: 'C', title: 'Капітан' });
       if (isInjured) radialItems.push({ cls: 'pt-inj', text: '✚', title: 'Травмований' });
       else if (isRehab) radialItems.push({ cls: 'pt-rehab', text: '↻', title: 'Відновлення' });
       else if (isReserve) radialItems.push({ cls: 'pt-res', text: 'R', title: 'Резерв' });
-      const nBadge = radialItems.length;
       const rPx = m.player / 2;
-      // radiusOffset = R + 5; px-зсув від центру (без % — стабільно в iOS WebKit)
-      const radiusOffset = rPx + 5;
+      const radiusOffset = rPx + 4;
+      // Кути лише у верхній півсфері: -140° … -40°
       const statusBadge = radialItems.map((b, i) => {
-        const total = Math.max(nBadge, 1);
-        const angle = -Math.PI / 2 + (i * (2 * Math.PI / Math.max(total, 3)));
+        const n = Math.max(radialItems.length, 1);
+        const angle = (-140 + (n === 1 ? 50 : (i * (100 / Math.max(n - 1, 1))))) * Math.PI / 180;
         const ox = radiusOffset * Math.cos(angle);
         const oy = radiusOffset * Math.sin(angle);
         return '<span class="pt-badge ' + b.cls + '" title="' + b.title +
           '" style="left:calc(50% + ' + ox.toFixed(1) + 'px);top:calc(50% + ' + oy.toFixed(1) + 'px)">' + b.text + '</span>';
       }).join('');
-      const posBadge = posCode ? `<span class="pt-pos">${sanitize(posCode)}</span>` : '';
-      const titleName = (o.label || ('#' + (o.number || ''))) + (posCode ? ' · ' + posCode : '');
+      // Позиція + ім'я одним рядком ПІД фішкою (без окремого pt-pos)
+      const nameText = o.label || '';
+      const label = (nameText || posCode)
+        ? `<span class="tn">${posCode ? `<span class="tn-pos">${sanitize(posCode)}</span>` : ''}${nameText ? sanitize(nameText) : ''}</span>`
+        : '';
+      const titleName = (nameText || ('#' + (o.number || ''))) + (posCode ? ' · ' + posCode : '');
       const titleExtra = (readiness != null ? ` · готовність ${readiness}%` : '')
         + (isCaptain ? ' · КАПІТАН' : '')
         + (isInjured ? ' · ТРАВМА' : '')
         + (isRehab ? ' · ВІДНОВЛЕННЯ' : '')
         + (isReserve ? ' · резерв' : '');
-      const label = o.label ? `<span class="tn">${sanitize(o.label)}</span>` : '';
       const extraCls = (isInjured ? ' injured' : '') + (isRehab ? ' rehab' : '') + (isReserve ? ' reserve' : '') + (isCaptain ? ' captain' : '');
       const readyAttr = readiness != null ? ` data-ready="${Math.round(readiness)}"` : '';
       const ringShadow = readiness != null
-        ? `--ring-c:${ringColor};box-shadow:0 0 0 3px ${ringColor},0 2px 6px rgba(0,0,0,.5)`
-        : '';
-      html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}"${readyAttr} style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px;${ringShadow}" title="${sanitize(titleName + titleExtra)}">${statusBadge}${posBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
+        ? `box-shadow:0 0 0 3px ${ringColor},0 2px 6px rgba(0,0,0,.45)`
+        : 'box-shadow:0 2px 6px rgba(0,0,0,.45)';
+      // Колір фішки: явний chipColor / fill / color, інакше CSS-клас own/opp/gk
+      const customBg = o.chipColor || o.fill || (o.team === 'own' || o.team === 'opp' ? o.color : null);
+      const bgStyle = customBg ? `background:${customBg} !important;border-color:rgba(255,255,255,.55);` : '';
+      html += `<div class="${cls}${extraCls}" data-id="${o.id}" data-r="${rPx}"${readyAttr} style="left:${pct.left}%;top:${pct.top}%;width:${m.player}px;height:${m.player}px;font-size:${m.font}px;--pt-r:${rPx}px;${ringShadow};${bgStyle}" title="${sanitize(titleName + titleExtra)}">${statusBadge}<span class="pt-num">${o.number || ''}</span>${label}</div>`;
     });
     layer.innerHTML = html;
     // Re-bind dblclick / contextmenu without inline handlers
@@ -1648,13 +1653,17 @@ const BoardEngine = {
         <button class="tb ${tool==='arrow'?'on':''}" data-tool="arrow" title="Стрілка">→</button>
       </div>
       <div class="tg" title="Колір стрілки">
-        <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#ecf0f1'?'on':''}" data-action="set-draw-color" data-color="#ecf0f1" title="Білий" style="background:#ecf0f1"></button>
-        <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#3498db'?'on':''}" data-action="set-draw-color" data-color="#3498db" title="Блакитний (пас)" style="background:#3498db"></button>
-        <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#2ecc71'?'on':''}" data-action="set-draw-color" data-color="#2ecc71" title="Зелений" style="background:#2ecc71"></button>
-        <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#f1c40f'?'on':''}" data-action="set-draw-color" data-color="#f1c40f" title="Жовтий (рух)" style="background:#f1c40f"></button>
-        <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#e67e22'?'on':''}" data-action="set-draw-color" data-color="#e67e22" title="Помаранчевий" style="background:#e67e22"></button>
-        <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#e74c3c'?'on':''}" data-action="set-draw-color" data-color="#e74c3c" title="Червоний (пресинг)" style="background:#e74c3c"></button>
-        <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#9b59b6'?'on':''}" data-action="set-draw-color" data-color="#9b59b6" title="Фіолетовий (ведення)" style="background:#9b59b6"></button>
+        <button type="button" class="tb tb-palette-toggle" data-action="toggle-palette" title="Палітра кольорів">🎨</button>
+        <span class="palette-swatches ${Store.get().activeBoard.paletteOpen ? 'open' : ''}" id="paletteSwatches">
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#ecf0f1'?'on':''}" data-action="set-draw-color" data-color="#ecf0f1" title="Білий" style="background:#ecf0f1"></button>
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#3498db'?'on':''}" data-action="set-draw-color" data-color="#3498db" title="Блакитний" style="background:#3498db"></button>
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#2ecc71'?'on':''}" data-action="set-draw-color" data-color="#2ecc71" title="Зелений" style="background:#2ecc71"></button>
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#f1c40f'?'on':''}" data-action="set-draw-color" data-color="#f1c40f" title="Жовтий" style="background:#f1c40f"></button>
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#e67e22'?'on':''}" data-action="set-draw-color" data-color="#e67e22" title="Помаранчевий" style="background:#e67e22"></button>
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#e74c3c'?'on':''}" data-action="set-draw-color" data-color="#e74c3c" title="Червоний" style="background:#e74c3c"></button>
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#9b59b6'?'on':''}" data-action="set-draw-color" data-color="#9b59b6" title="Фіолетовий" style="background:#9b59b6"></button>
+          <button type="button" class="tb color-swatch ${(Store.get().activeBoard.drawColor||'')==='#1a73e8'?'on':''}" data-action="set-draw-color" data-color="#1a73e8" title="Синій (своя команда)" style="background:#1a73e8"></button>
+        </span>
       </div>
       <div class="tg">
         <button class="tb ${tool==='zone'?'on':''}" data-tool="zone" title="Зона (прямокутник)">▢</button>

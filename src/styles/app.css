@@ -3393,3 +3393,56 @@ body.board-fs-nav #boardToolbar .tb {
 }
 /* Hide legacy SVG ring if any remains */
 #playersLayer .pt .pt-ring { display: none !important; }
+
+/* Ім'я під фішкою — один рядок, без наїзду бейджів */
+#playersLayer .pt .tn {
+  position: absolute !important;
+  top: calc(100% + 3px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  font-size: max(8px, calc(var(--pt-r, 16px) * 0.42)) !important;
+  line-height: 1.15 !important;
+  white-space: nowrap !important;
+  color: #fff !important;
+  text-shadow: 0 1px 3px #000, 0 0 4px #000 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#playersLayer .pt .tn-pos {
+  display: inline-block;
+  margin-right: 3px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgba(0,0,0,.45);
+  font-weight: 700;
+  font-size: 0.9em;
+  opacity: 0.95;
+}
+/* Бейджі статусу — поверх фішки зверху, не знизу */
+#playersLayer .pt .pt-badge {
+  z-index: 8 !important;
+}
+#playersLayer .pt .pt-pos { display: none !important; }
+
+/* Згортаєма палітра */
+.palette-swatches {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.palette-swatches.open {
+  display: inline-flex !important;
+}
+.tb-palette-toggle {
+  font-size: 16px !important;
+}
+#boardToolbar .color-swatch {
+  min-width: 28px !important;
+  min-height: 28px !important;
+}
