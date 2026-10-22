@@ -4669,3 +4669,52 @@ body.drawer-open #drawerBackdrop {
   white-space: nowrap;
   font-size: 11px;
 }
+
+/* Home quick + coach tools collapse */
+.home-quick-row {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+}
+.coach-tools-collapse { margin-bottom: 12px; padding: 0; overflow: hidden; }
+.coach-tools-handle {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 14px; background: transparent; border: 0; color: inherit;
+  font: inherit; cursor: pointer; min-height: 48px; text-align: left;
+}
+.coach-tools-body { padding: 0 10px 12px; }
+.coach-tools-body .coach-tools-panel { margin: 0; box-shadow: none; border: 0; background: transparent; }
+.sc-tap { cursor: pointer; transition: transform .15s ease, border-color .15s; }
+.sc-tap:active { transform: scale(0.98); }
+.sc-next-training.tg-row-holding, .pl-row.tg-row-holding, .scheme-row.tg-row-holding {
+  outline: 2px solid var(--club-secondary, #22c55e); opacity: 0.92;
+}
+
+/* Players table */
+.pl-table { overflow: hidden; }
+.pl-head, .pl-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 48px 56px 64px;
+  gap: 6px; align-items: center;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.pl-head { border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: 600; color: var(--muted, #94a3b8); }
+.pl-th {
+  background: none; border: 0; color: inherit; font: inherit; text-align: left;
+  cursor: pointer; padding: 0; min-height: 32px;
+}
+.pl-th.on { color: var(--club-secondary, #22c55e); }
+.pl-row { border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 48px; }
+.pl-row.is-reserve { opacity: 0.85; }
+.pl-row.is-injured .pl-name { color: var(--danger, #f87171); }
+.pl-num { font-variant-numeric: tabular-nums; color: var(--muted); }
+.pl-att { font-variant-numeric: tabular-nums; }
+.pl-role { font-size: 11px; color: var(--muted); }
+
+.scheme-group-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); margin: 12px 0 6px; padding: 0 4px;
+}
+.tg-sheet-preview {
+  padding: 12px 16px; font-size: 13px; line-height: 1.45;
+  color: var(--text, #e2e8f0); white-space: normal;
+}

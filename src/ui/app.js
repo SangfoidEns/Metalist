@@ -786,6 +786,221 @@ const App = {
     try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
   },
 
+  openPlayerActionSheet(playerId) {
+    const p = (Store.get().players || []).find(x => x.id === playerId);
+    if (!p) return;
+    document.querySelectorAll('.tg-sheet-backdrop').forEach(el => el.remove());
+    const backdrop = document.createElement('div');
+    backdrop.className = 'tg-sheet-backdrop';
+    const name = ((p.number != null ? '#' + p.number + ' ' : '') + (p.firstName || '') + ' ' + (p.lastName || '')).trim();
+    const title = (typeof sanitize === 'function') ? sanitize(name) : name;
+    backdrop.innerHTML = '<div class="tg-sheet" role="dialog">' +
+      '<div class="tg-sheet-handle"></div>' +
+      '<div class="tg-sheet-title">' + title + '</div>' +
+      '<div class="tg-sheet-sub">' + (p.position || '') + ' · ' + (p.status || 'available') + '</div>' +
+      '<button type="button" class="tg-sheet-btn" data-psheet="edit" data-pid="' + p.id + '">✏️ Редагувати</button>' +
+      '<button type="button" class="tg-sheet-btn" data-psheet="board" data-pid="' + p.id + '">⚽ Прикріпити поточну дошку</button>' +
+      '<button type="button" class="tg-sheet-btn" data-psheet="diary" data-pid="' + p.id + '">📓 Запис у щоденник</button>' +
+      '<button type="button" class="tg-sheet-btn" data-psheet="starter" data-pid="' + p.id + '">⭐ У основу / резерв</button>' +
+      '<button type="button" class="tg-sheet-btn tg-sheet-danger" data-psheet="delete" data-pid="' + p.id + '">🗑 Видалити</button>' +
+      '<button type="button" class="tg-sheet-btn tg-sheet-cancel" data-psheet="close">Закрити</button></div>';
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(function() { backdrop.classList.add('show'); });
+    const close = function() { backdrop.classList.remove('show'); setTimeout(function() { backdrop.remove(); }, 220); };
+    backdrop.addEventListener('click', function(e) {
+      if (e.target === backdrop) return close();
+      const btn = e.target.closest('[data-psheet]');
+      if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      const act = btn.dataset.psheet;
+      const pid = btn.dataset.pid;
+      close();
+      if (act === 'close') return;
+      if (act === 'edit') return Actions.editPlayer(pid);
+      if (act === 'board') {
+        const pl = Store.get().players.find(x => x.id === pid);
+        if (!pl) return;
+        if (typeof BoardLink !== 'undefined') BoardLink.attachTo(pl);
+        else pl.board = { objects: JSON.parse(JSON.stringify((Store.get().activeBoard || {}).objects || [])) };
+        StorageManager.save();
+        Toast.show('Дошку прикріплено до гравця', 'ok');
+        return;
+      }
+      if (act === 'diary') {
+        Actions.newDiary({ withBoard: false });
+        setTimeout(function() { const sel = document.getElementById('dyP'); if (sel) sel.value = pid; }, 50);
+        return;
+      }
+      if (act === 'starter') {
+        const pl = Store.get().players.find(x => x.id === pid);
+        if (!pl) return;
+        pl.isStarter = !pl.isStarter;
+        pl.squadRole = pl.isStarter ? 'starter' : 'reserve';
+        StorageManager.save();
+        App.renderCurrent();
+        Toast.show(pl.isStarter ? 'В основі' : 'У резерві', 'ok');
+        return;
+      }
+      if (act === 'delete') {
+        return Modal.confirm('Видалити гравця?', function() {
+          Store.get().players = Store.get().players.filter(x => x.id !== pid);
+          StorageManager.save();
+          App.renderCurrent();
+          Toast.show('Видалено');
+        });
+      }
+    });
+    try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
+  },
+
+  openSchemeActionSheet(boardId) {
+    const b = (Store.get().boards || []).find(x => x.id === boardId);
+    if (!b) return;
+    document.querySelectorAll('.tg-sheet-backdrop').forEach(el => el.remove());
+    const backdrop = document.createElement('div');
+    backdrop.className = 'tg-sheet-backdrop';
+    const bname = (typeof sanitize === 'function') ? sanitize(b.name) : b.name;
+    backdrop.innerHTML = '<div class="tg-sheet" role="dialog">' +
+      '<div class="tg-sheet-handle"></div>' +
+      '<div class="tg-sheet-title">' + bname + '</div>' +
+      '<div class="tg-sheet-sub">' + ((b.objects || []).length) + " об'єктів</div>" +
+      '<button type="button" class="tg-sheet-btn" data-ssheet="open" data-bid="' + b.id + '">⚽ Відкрити на дошці</button>' +
+      '<button type="button" class="tg-sheet-btn" data-ssheet="training" data-bid="' + b.id + '">📋 Прикріпити до тренування</button>' +
+      '<button type="button" class="tg-sheet-btn" data-ssheet="player" data-bid="' + b.id + '">👤 Прикріпити до гравця</button>' +
+      '<button type="button" class="tg-sheet-btn" data-ssheet="diary" data-bid="' + b.id + '">📓 Прикріпити до щоденника</button>' +
+      '<button type="button" class="tg-sheet-btn tg-sheet-danger" data-ssheet="delete" data-bid="' + b.id + '">🗑 Видалити</button>' +
+      '<button type="button" class="tg-sheet-btn tg-sheet-cancel" data-ssheet="close">Закрити</button></div>';
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(function() { backdrop.classList.add('show'); });
+    const close = function() { backdrop.classList.remove('show'); setTimeout(function() { backdrop.remove(); }, 220); };
+    backdrop.addEventListener('click', function(e) {
+      if (e.target === backdrop) return close();
+      const btn = e.target.closest('[data-ssheet]');
+      if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      const act = btn.dataset.ssheet;
+      const bid = btn.dataset.bid;
+      const board = (Store.get().boards || []).find(x => x.id === bid);
+      close();
+      if (act === 'close' || !board) return;
+      if (act === 'open') {
+        if (typeof BoardEngine !== 'undefined' && BoardEngine.loadBoard) BoardEngine.loadBoard(bid);
+        App.allowBoardOnce('load-board');
+        App.navigate('board');
+        return;
+      }
+      if (act === 'training') {
+        const planned = (Store.get().trainings || []).filter(t => t.status === 'planned' || t.status === 'draft').slice(0, 8);
+        if (!planned.length) { Toast.show('Немає тренувань для прикріплення', 'warn'); return; }
+        const opts = planned.map(t => '<option value="' + t.id + '">' + sanitize(t.date || '') + ' · ' + sanitize(t.name) + '</option>').join('');
+        Modal.open('Прикріпити схему до тренування', '<div class="fgr full"><label>Тренування</label><select id="attachTrSel">' + opts + '</select></div>', [
+          { label: 'Скасувати', cls: 'btn-s', action: 'cancel' },
+          { label: 'Прикріпити', cls: 'btn-p', action: 'confirm' }
+        ]);
+        Modal._onConfirm = function() {
+          const tid = document.getElementById('attachTrSel') && document.getElementById('attachTrSel').value;
+          const tr = Store.get().trainings.find(x => x.id === tid);
+          if (tr) {
+            tr.board = { objects: JSON.parse(JSON.stringify(board.objects || [])) };
+            tr.boardId = board.id;
+            StorageManager.save();
+            Toast.show('Схему прикріплено до тренування', 'ok');
+          }
+        };
+        return;
+      }
+      if (act === 'player') {
+        const pls = (Store.get().players || []).slice().sort(function(a,b){ return (a.number||0)-(b.number||0); });
+        const opts = pls.map(p => '<option value="' + p.id + '">#' + (p.number||'') + ' ' + sanitize(p.lastName||'') + '</option>').join('');
+        Modal.open('Прикріпити схему до гравця', '<div class="fgr full"><label>Гравець</label><select id="attachPlSel">' + opts + '</select></div>', [
+          { label: 'Скасувати', cls: 'btn-s', action: 'cancel' },
+          { label: 'Прикріпити', cls: 'btn-p', action: 'confirm' }
+        ]);
+        Modal._onConfirm = function() {
+          const pid = document.getElementById('attachPlSel') && document.getElementById('attachPlSel').value;
+          const pl = Store.get().players.find(x => x.id === pid);
+          if (pl) {
+            pl.board = { objects: JSON.parse(JSON.stringify(board.objects || [])) };
+            pl.boardId = board.id;
+            StorageManager.save();
+            Toast.show('Схему прикріплено до гравця', 'ok');
+          }
+        };
+        return;
+      }
+      if (act === 'diary') {
+        const entry = {
+          id: typeof uid === 'function' ? uid() : ('d' + Date.now()),
+          title: 'Схема: ' + (board.name || ''),
+          category: 'Tactical Idea',
+          mood: '💡',
+          text: 'Збережена схема з розділу Тактика',
+          playerId: '',
+          tags: ['scheme'],
+          board: { objects: JSON.parse(JSON.stringify(board.objects || [])) },
+          boardObjCount: (board.objects || []).length,
+          date: typeof today === 'function' ? today() : new Date().toISOString().slice(0, 10),
+          createdAt: new Date().toISOString()
+        };
+        Store.get().diary = Store.get().diary || [];
+        Store.get().diary.push(entry);
+        StorageManager.save();
+        Toast.show('Схему збережено в щоденник', 'ok');
+        App.navigate('diary');
+        return;
+      }
+      if (act === 'delete') {
+        return Modal.confirm('Видалити схему?', function() {
+          Store.get().boards = Store.get().boards.filter(x => x.id !== bid);
+          StorageManager.save();
+          App.renderCurrent();
+          Toast.show('Видалено');
+        });
+      }
+    });
+    try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
+  },
+
+  openNextTrainingPreview(trainingId) {
+    const t = (Store.get().trainings || []).find(x => x.id === trainingId);
+    if (!t) return;
+    document.querySelectorAll('.tg-sheet-backdrop').forEach(el => el.remove());
+    const blocks = (t.structure || []).map(b =>
+      '• ' + (b.title || b.name || 'Блок') + ' — ' + (b.duration || 0) + ' хв'
+    ).join('<br>') || 'Структура ще не задана';
+    const backdrop = document.createElement('div');
+    backdrop.className = 'tg-sheet-backdrop';
+    const tname = (typeof sanitize === 'function') ? sanitize(t.name) : t.name;
+    const goal = t.mainGoal ? ('🎯 ' + ((typeof sanitize === 'function') ? sanitize(t.mainGoal) : t.mainGoal) + '<br><br>') : '';
+    backdrop.innerHTML = '<div class="tg-sheet" role="dialog">' +
+      '<div class="tg-sheet-handle"></div>' +
+      '<div class="tg-sheet-title">' + tname + '</div>' +
+      '<div class="tg-sheet-sub">' + (t.date || '') + ' ' + (t.time || '') + ' · ' + (t.duration || 0) + ' хв · RPE ' + (t.intensity || '—') + '</div>' +
+      '<div class="tg-sheet-preview">' + goal + blocks + '</div>' +
+      '<button type="button" class="tg-sheet-btn" data-nsheet="edit" data-tid="' + t.id + '">✏️ Редагувати</button>' +
+      '<button type="button" class="tg-sheet-btn" data-nsheet="share" data-tid="' + t.id + '">📤 Поділитися планом</button>' +
+      '<button type="button" class="tg-sheet-btn" data-nsheet="board" data-tid="' + t.id + '">⚽ Дошка</button>' +
+      '<button type="button" class="tg-sheet-btn tg-sheet-cancel" data-nsheet="close">Закрити</button></div>';
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(function() { backdrop.classList.add('show'); });
+    const close = function() { backdrop.classList.remove('show'); setTimeout(function() { backdrop.remove(); }, 220); };
+    backdrop.addEventListener('click', function(e) {
+      if (e.target === backdrop) return close();
+      const btn = e.target.closest('[data-nsheet]');
+      if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      const act = btn.dataset.nsheet;
+      close();
+      if (act === 'edit') return Actions.editTraining(btn.dataset.tid);
+      if (act === 'share') {
+        try { if (typeof CoachTools !== 'undefined' && CoachTools.shareNextTraining) CoachTools.shareNextTraining(); } catch (_) {}
+        return;
+      }
+      if (act === 'board') return Actions.openTrainingBoard(btn.dataset.tid);
+    });
+    try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
+  },
+
   bindTrainingLongPress() {
     const root = document.getElementById('app') || document.body;
     if (root._lpBound) return;
@@ -802,19 +1017,32 @@ const App = {
     };
 
     root.addEventListener('pointerdown', e => {
-      const row = e.target.closest('.card-training[data-training-id], .tg-row[data-training-id]');
+      const row = e.target.closest(
+        '.card-training[data-training-id], .tg-row[data-training-id], .pl-row[data-player-id], .scheme-row[data-board-id], .sc-next-training[data-next-training], .coach-tools-handle'
+      );
       if (!row) return;
-      // не стартуємо long-press з кнопок всередині
-      if (e.target.closest('button, a, input, select, textarea')) return;
+      if (e.target.closest('button:not(.coach-tools-handle), a, input, select, textarea')) return;
       this._lpMoved = false;
       this._lpTarget = row;
       row.classList.add('tg-row-holding');
-      const tid = row.dataset.trainingId || row.dataset.editTraining;
+      const kind = row.classList.contains('pl-row') ? 'player'
+        : row.classList.contains('scheme-row') ? 'scheme'
+        : row.classList.contains('sc-next-training') ? 'next-training'
+        : row.classList.contains('coach-tools-handle') ? 'coach-tools'
+        : 'training';
+      const id = row.dataset.trainingId || row.dataset.editTraining || row.dataset.playerId || row.dataset.boardId || row.dataset.nextTraining || '';
       this._lpTimer = setTimeout(() => {
         this._lpTimer = null;
         if (this._lpTarget && !this._lpMoved) {
           this._lpTarget.classList.remove('tg-row-holding');
-          this.openTrainingActionSheet(tid);
+          if (kind === 'player') this.openPlayerActionSheet(id);
+          else if (kind === 'scheme') this.openSchemeActionSheet(id);
+          else if (kind === 'next-training') this.openNextTrainingPreview(id);
+          else if (kind === 'coach-tools') {
+            const body = document.querySelector('.coach-tools-body');
+            if (body) body.removeAttribute('hidden');
+            try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
+          } else this.openTrainingActionSheet(id);
           this._lpTarget = null;
           this._lpSuppressClick = true;
           setTimeout(() => { this._lpSuppressClick = false; }, 400);
@@ -849,7 +1077,7 @@ const App = {
       const inModal = e.target.closest('#modal, .md, .modal-content, #modalBody, #modalFooter');
       const inSidebarNav = e.target.closest('#sidebar .nav, .sidebar .nav, .sb-scroll');
 
-      const t = e.target.closest('[data-action],[data-view],[data-tool],[data-ai],[data-edit-training],[data-attendance-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],[data-scheme],[data-load-board],[data-del-board],[data-special],[data-day],[data-view-exercise],[data-view-match],[data-del-match],[data-tpl],[data-modal-action],[data-b3-phase],[data-board-tpl],[data-b3-rot],[data-del-myex],[data-add-myex-tr],[data-load-myex-board],[data-del-diary],[data-edit-diary],[data-load-diary-board],[data-attach-diary-board],[data-diary-filter],[data-play-anim],[data-coach-tool]');
+      const t = e.target.closest('[data-action],[data-view],[data-tool],[data-ai],[data-edit-training],[data-attendance-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],[data-scheme],[data-load-board],[data-del-board],[data-special],[data-day],[data-view-exercise],[data-view-match],[data-del-match],[data-tpl],[data-modal-action],[data-b3-phase],[data-board-tpl],[data-b3-rot],[data-del-myex],[data-add-myex-tr],[data-load-myex-board],[data-del-diary],[data-edit-diary],[data-load-diary-board],[data-attach-diary-board],[data-diary-filter],[data-play-anim],[data-coach-tool],[data-player-sort],[data-player-id],[data-board-id],[data-next-training]');
       if (!t) {
         // close search
         if (!e.target.closest('.gs')) document.getElementById('gResults')?.classList.remove('show');
@@ -913,6 +1141,17 @@ const App = {
       if (action === 'new-myex') return Actions.newMyEx();
       if (action === 'myex-from-board') return Actions.myExFromBoard();
       if (action === 'new-diary') return Actions.newDiary();
+      if (action === 'toggle-coach-tools') {
+        const body = document.querySelector('.coach-tools-body');
+        const handle = document.querySelector('.coach-tools-handle');
+        if (body) {
+          const open = body.hasAttribute('hidden');
+          if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
+          if (handle) handle.setAttribute('aria-expanded', open ? 'true' : 'false');
+          try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
+        }
+        return;
+      }
       if (action === 'save-board-diary') return Actions.saveBoardToDiary();
       if (action === 'save-b3-anim') return Actions.saveB3Anim();
       if (action === 'save-anim-to-training') return Actions.saveAnimToTraining();
@@ -1108,6 +1347,17 @@ const App = {
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
         // ТІЛЬКИ модалка деталей — без переходу на дошку
         return Actions.editTraining(t.dataset.editTraining);
+      }
+      if (t.dataset.playerSort) {
+        e.preventDefault(); e.stopPropagation();
+        const s = Store.get();
+        s.ui = s.ui || {};
+        const key = t.dataset.playerSort;
+        if (s.ui.playerSort === key) s.ui.playerSortDir = s.ui.playerSortDir === 'desc' ? 'asc' : 'desc';
+        else { s.ui.playerSort = key; s.ui.playerSortDir = 'asc'; }
+        try { StorageManager.save(); } catch (_) {}
+        App.renderCurrent();
+        return;
       }
       if (t.dataset.coachTool) {
         e.preventDefault();

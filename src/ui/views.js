@@ -60,13 +60,34 @@ const Views = {
     const recent = s.trainings.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
     const drafts = s.trainings.filter(t => t.status === 'draft' || t.status === 'pinned');
 
+    const boardCount = (s.boards || []).length;
     return `
       <div class="st">Головна · МЕТАЛІСТ ШТУТГАРТ</div>
-      ${typeof CoachTools !== 'undefined' ? CoachTools.panelHtml() : ''}
+      <div class="home-quick-row">
+        <button type="button" class="btn btn-p btn-sm" data-action="new-training">+ Тренування</button>
+        <button type="button" class="btn btn-s btn-sm" data-view="players">Склад</button>
+        <button type="button" class="btn btn-s btn-sm" data-view="analytics">Статистика</button>
+        <button type="button" class="btn btn-s btn-sm" data-view="tactics">Схеми</button>
+      </div>
+      <div class="coach-tools-collapse glass" id="coachToolsCollapse">
+        <button type="button" class="coach-tools-handle" data-action="toggle-coach-tools" aria-expanded="false">
+          <span>🛠 Інструменти тренера</span>
+          <span class="note-sm">утримуйте або натисніть</span>
+        </button>
+        <div class="coach-tools-body" hidden>
+          ${typeof CoachTools !== 'undefined' ? CoachTools.panelHtml() : ''}
+        </div>
+      </div>
       <div class="dg">
-        <div class="sc"><div class="lb">Доступні гравці</div><div class="vl">${avail}</div><div class="sb">з ${s.players.length}</div></div>
+        <div class="sc sc-tap" data-view="players" role="button" title="Відкрити склад">
+          <div class="lb">Доступні гравці</div><div class="vl">${avail}</div><div class="sb">з ${s.players.length} · відкрити</div>
+        </div>
         <div class="sc"><div class="lb">Травмовані / відновлення</div><div class="vl" style="color:var(--danger)">${injured}</div></div>
-        <div class="sc"><div class="lb">Наступне тренування</div><div class="vl" style="font-size:14px">${next ? sanitize(next.name) : '—'}</div><div class="sb">${next ? next.date + ' ' + (next.time || '') : ''}</div></div>
+        <div class="sc sc-tap sc-next-training${next ? '' : ' is-empty'}" ${next ? `data-next-training="${next.id}"` : ''} role="button" title="Утримуйте для плану">
+          <div class="lb">Наступне тренування</div>
+          <div class="vl" style="font-size:14px">${next ? sanitize(next.name) : '—'}</div>
+          <div class="sb">${next ? next.date + ' ' + (next.time || '') + ' · утримуйте' : ''}</div>
+        </div>
         <div class="sc"><div class="lb">Тривалість</div><div class="vl">${next ? next.duration : 0}<span style="font-size:13px"> хв</span></div></div>
         <div class="sc"><div class="lb">Тижневе навантаження</div><div class="vl">${weekLoad}</div><div class="sb">Duration × RPE</div></div>
         <div class="sc"><div class="lb">Години тренувань</div><div class="vl">${totalHours}</div></div>
@@ -427,80 +448,77 @@ const Views = {
 
   players() {
     const s = Store.get();
-    return `
-      <div class="st">Склад команди <button class="btn btn-p btn-sm coach-only" data-action="new-player">+ Гравець</button></div>
-      <div class="fb">
-        <input type="search" id="plSearch" placeholder="Пошук..." data-filter="players">
-        <select id="plPos" data-filter="players"><option value="">Всі позиції</option>${['GK','CB','LB','RB','DM','CM','AM','LW','RW','ST'].map(p=>`<option>${p}</option>`).join('')}</select>
-        <select id="plSt" data-filter="players"><option value="">Всі статуси</option>
-          <option value="available">Здоровий</option>
-          <option value="injured">Травмований</option>
-          <option value="rehab">Відновлення</option>
-          <option value="suspended">Дискваліфікація</option>
-          <option value="unavailable">Недоступний</option>
-        </select>
-        <select id="plGr" data-filter="players"><option value="">Всі групи</option>
-          <option value="main">Основний</option><option value="reserve">Резерв</option>
-          <option value="gk">Воротарі</option><option value="def">Захист</option>
-          <option value="mid">Півзахист</option><option value="att">Атака</option>
-        </select>
-      </div>
-      <div class="tw"><table><thead><tr>
-        <th>#</th><th>Гравець</th><th>Поз.</th><th>Вік</th><th>Статус</th><th>Стан</th><th>Готовність</th><th>Load</th><th></th>
-      </tr></thead><tbody id="plTable">${this._plRows(s.players)}</tbody></table></div>
-      <p class="note-sm">Load — планувальний показник (не медична оцінка).</p>`;
-  },
+    const sortKey = (s.ui && s.ui.playerSort) || 'role';
+    const sortDir = (s.ui && s.ui.playerSortDir) === 'desc' ? -1 : 1;
 
-  _plRows(list) {
-    if (!list.length) return '<tr><td colspan="9" style="text-align:center;color:var(--muted)">Немає гравців</td></tr>';
-    const statusLabel = (st) => ({
-      available: 'Здоровий', healthy: 'Здоровий', injured: 'Травмований',
-      rehab: 'Відновлення', recovery: 'Відновлення', suspended: 'Дискваліфікація',
-      unavailable: 'Недоступний', individual: 'Індивідуально'
-    })[st] || st;
-    return list.map(p => {
+    const attPct = (pid) => {
+      try {
+        if (typeof Views._playerStats === 'function') {
+          const st = Views._playerStats(pid);
+          return st && st.attPct != null ? st.attPct : 0;
+        }
+      } catch (_) {}
+      return 0;
+    };
+    const isStarter = (p) => {
+      if (p.isStarter === true || p.role === 'starter' || p.squadRole === 'starter') return true;
+      if (p.isStarter === false || p.role === 'reserve' || p.squadRole === 'reserve' || p.onBench) return false;
+      // heuristic: first 11 by number if no flag — prefer available non-injured as starter-ish
+      return !(p.status === 'injured' || p.status === 'rehab' || p.status === 'recovery');
+    };
+    const roleLabel = (p) => isStarter(p) ? 'Основа' : 'Резерв';
+
+    let list = (s.players || []).slice();
+    list.sort((a, b) => {
+      // primary: starters first
+      const ra = isStarter(a) ? 0 : 1;
+      const rb = isStarter(b) ? 0 : 1;
+      if (ra !== rb) return ra - rb;
+      let cmp = 0;
+      if (sortKey === 'number') cmp = (a.number || 0) - (b.number || 0);
+      else if (sortKey === 'name') cmp = String(a.lastName || '').localeCompare(String(b.lastName || ''), 'uk');
+      else if (sortKey === 'pos') cmp = String(a.position || '').localeCompare(String(b.position || ''), 'uk');
+      else if (sortKey === 'att') cmp = attPct(a.id) - attPct(b.id);
+      else if (sortKey === 'role') cmp = 0;
+      else cmp = (a.number || 0) - (b.number || 0);
+      return cmp * sortDir || ((a.number || 0) - (b.number || 0));
+    });
+
+    const th = (key, label) => {
+      const active = sortKey === key ? (sortDir < 0 ? ' ↓' : ' ↑') : '';
+      return `<button type="button" class="pl-th${sortKey === key ? ' on' : ''}" data-player-sort="${key}">${label}${active}</button>`;
+    };
+
+    const rows = list.map(p => {
+      const att = attPct(p.id);
+      const role = roleLabel(p);
       const st = p.status || 'available';
-      const bc = (st === 'available' || st === 'healthy') ? 'b-ok' : (st === 'injured' ? 'b-d' : 'b-w');
-      const lc = (p.load || 0) < 4 ? 'll' : (p.load || 0) < 7 ? 'lm' : 'lh';
-      const cap = p.isCaptain ? ' <span class="player-cap-tag">C</span>' : '';
-      const tg = p.telegramUsername ? ' <span class="player-tg">@' + sanitize(p.telegramUsername) + '</span>' : '';
-      const inj = (st === 'injured') ? ' <span class="player-inj-ico" title="Травма">✚</span>' : '';
-      return `<tr>
-        <td><span class="pn ${p.position === 'GK' ? 'gk' : ''}">${p.number}</span></td>
-        <td>${sanitize(p.firstName)} ${sanitize(p.lastName)}${cap}${tg}${inj}</td>
-        <td>${p.position}</td><td>${p.age}</td>
-        <td><span class="badge ${bc}">${statusLabel(st)}</span></td>
-        <td>${p.condition}%</td><td>${p.readiness}%</td>
-        <td><div class="lb2"><div class="lbf ${lc}" style="width:${(p.load || 0) * 10}%"></div></div></td>
-        <td>
-          <button class="btn btn-s btn-sm" data-edit-player="${p.id}">✎</button>
-          <button class="btn btn-d btn-sm" data-del-player="${p.id}">✕</button>
-        </td>
-      </tr>`;
+      const inj = (st === 'injured' || st === 'rehab' || st === 'recovery');
+      return `<div class="pl-row tg-row${inj ? ' is-injured' : ''}${!isStarter(p) ? ' is-reserve' : ''}"
+        data-player-id="${p.id}" data-player-row="${p.id}">
+        <span class="pl-num">#${p.number || '—'}</span>
+        <span class="pl-name">${sanitize(p.lastName || '')} ${sanitize((p.firstName || '')[0] || '')}.</span>
+        <span class="pl-pos">${sanitize(p.position || '')}</span>
+        <span class="pl-att">${att}%</span>
+        <span class="pl-role">${role}</span>
+      </div>`;
     }).join('');
-  },
 
-  exercises() {
-    const s = Store.get();
     return `
-      <div class="st">Бібліотека вправ <button class="btn btn-p btn-sm" data-action="new-exercise">+ Вправа</button></div>
-      <div class="fb">
-        <input type="search" id="exSearch" placeholder="Пошук..." data-filter="exercises">
-        <select id="exCat" data-filter="exercises">
-          <option value="">Всі категорії</option>
-          <option value="warmup">Warm-up</option><option value="passing">Passing</option>
-          <option value="possession">Possession</option><option value="finishing">Finishing</option>
-          <option value="defending">Defending</option><option value="pressing">Pressing</option>
-          <option value="transition">Transition</option><option value="buildup">Build-up</option>
-          <option value="goalkeeping">Goalkeeping</option><option value="conditioning">Conditioning</option>
-          <option value="recovery">Recovery</option>
-        </select>
+      <div class="st">Склад
+        <button class="btn btn-p btn-sm" data-action="new-player">+ Гравець</button>
       </div>
-      <div id="exList">${s.exercises.map(e => `
-        <div class="ec" data-view-exercise="${e.id}">
-          <h4>${sanitize(e.name)}</h4>
-          <div class="me">${e.category} · ${e.duration}хв · ${e.players} гр. · RPE ${e.intensity} · ${sanitize(e.objective || '')}</div>
-        </div>`).join('') || '<div class="es">Немає вправ</div>'}`;
+      <p class="note-sm">Основа зверху, резерв знизу. Утримуйте рядок — меню як у Telegram.</p>
+      <div class="pl-table glass">
+        <div class="pl-head">
+          ${th('number', '№')}
+          ${th('name', 'Прізвище')}
+          ${th('pos', 'Поз.')}
+          ${th('att', 'Відв.%')}
+          ${th('role', 'Склад')}
+        </div>
+        <div class="pl-body">${rows || '<div class="es">Немає гравців</div>'}</div>
+      </div>`;
   },
 
   tactics() {
@@ -520,13 +538,33 @@ const Views = {
         <div class="sg">${Object.keys(SCHEMES).map(k => `<button class="sb2" data-scheme="${k}">${k}</button>`).join('')}</div>
       </div>
       <div class="card"><div class="ct">Збережені схеми</div>
-        ${s.boards.length ? s.boards.map(b => `
-          <div class="li"><div class="inf"><div class="ti">${sanitize(b.name)}</div><div class="me">${fmtDate(b.createdAt)}</div></div>
-            <div style="display:flex;gap:3px">
-              <button class="btn btn-s btn-sm" data-load-board="${b.id}">Відкрити</button>
-              <button class="btn btn-d btn-sm" data-del-board="${b.id}">✕</button>
-            </div>
-          </div>`).join('') : '<div class="es">Збережіть схему з дошки</div>'}
+        <p class="note-sm">Утримуйте схему — відкрити / прикріпити до тренування, гравця чи щоденника.</p>
+        ${(() => {
+          const boards = (s.boards || []).slice();
+          const typeOf = (b) => b.schemeType || b.type || (b.name && /тренув|plan|session/i.test(b.name) ? 'training' : (b.name && /гравець|player/i.test(b.name) ? 'player' : 'tactics'));
+          const label = { training: 'План тренування', tactics: 'Тактика', player: 'Для гравців' };
+          const groups = { training: [], tactics: [], player: [] };
+          boards.forEach(b => {
+            const t = typeOf(b);
+            (groups[t] || groups.tactics).push(b);
+          });
+          const order = ['training', 'tactics', 'player'];
+          let html = '';
+          order.forEach(g => {
+            if (!groups[g].length) return;
+            html += '<div class="scheme-group-title">' + label[g] + '</div>';
+            groups[g].sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+            html += groups[g].map(b => `
+              <div class="tg-row scheme-row" data-board-id="${b.id}" role="button" tabindex="0">
+                <div class="tg-row-main">
+                  <div class="tg-row-title">${sanitize(b.name)}</div>
+                  <div class="tg-row-sub">${fmtDate(b.createdAt)} · ${(b.objects||[]).length} об'єктів</div>
+                </div>
+                <div class="tg-row-chevron">›</div>
+              </div>`).join('');
+          });
+          return html || '<div class="es">Збережіть схему з дошки (💾)</div>';
+        })()}
       </div>
       <div class="card"><div class="ct">Спеціальні</div>
         <div class="sg">
