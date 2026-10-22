@@ -659,7 +659,17 @@ const App = {
     }
     try {
       el.innerHTML = Views[view]();
-      if (view === 'settings') {
+      if (view === 'settings' || view === 'dashboard') {
+        try {
+          const tgLine = document.getElementById('tgStatusLine');
+          if (tgLine && typeof TelegramManager !== 'undefined') {
+            const on = TelegramManager.isTelegram;
+            const u = TelegramManager.getUser && TelegramManager.getUser();
+            tgLine.textContent = on
+              ? ('Telegram: ' + TelegramManager.platform() + (u ? ' · @' + (u.username || u.first_name || '') : '') + ' · Cloud ' + (TelegramManager.tg && TelegramManager.tg.CloudStorage ? '✓' : '—'))
+              : 'Браузерний режим (Telegram Cloud недоступний)';
+          }
+        } catch (_) {}
         try {
           const me = document.getElementById('rbacMe');
           if (me && typeof AuthManager !== 'undefined') {
@@ -835,7 +845,7 @@ const App = {
       const inModal = e.target.closest('#modal, .md, .modal-content, #modalBody, #modalFooter');
       const inSidebarNav = e.target.closest('#sidebar .nav, .sidebar .nav, .sb-scroll');
 
-      const t = e.target.closest('[data-action],[data-view],[data-tool],[data-ai],[data-edit-training],[data-attendance-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],[data-scheme],[data-load-board],[data-del-board],[data-special],[data-day],[data-view-exercise],[data-view-match],[data-del-match],[data-tpl],[data-modal-action],[data-b3-phase],[data-board-tpl],[data-b3-rot],[data-del-myex],[data-add-myex-tr],[data-load-myex-board],[data-del-diary],[data-edit-diary],[data-load-diary-board],[data-diary-filter],[data-play-anim]');
+      const t = e.target.closest('[data-action],[data-view],[data-tool],[data-ai],[data-edit-training],[data-attendance-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],[data-scheme],[data-load-board],[data-del-board],[data-special],[data-day],[data-view-exercise],[data-view-match],[data-del-match],[data-tpl],[data-modal-action],[data-b3-phase],[data-board-tpl],[data-b3-rot],[data-del-myex],[data-add-myex-tr],[data-load-myex-board],[data-del-diary],[data-edit-diary],[data-load-diary-board],[data-diary-filter],[data-play-anim],[data-coach-tool]');
       if (!t) {
         // close search
         if (!e.target.closest('.gs')) document.getElementById('gResults')?.classList.remove('show');
@@ -1093,6 +1103,14 @@ const App = {
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
         // ТІЛЬКИ модалка деталей — без переходу на дошку
         return Actions.editTraining(t.dataset.editTraining);
+      }
+      if (t.dataset.coachTool) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          if (typeof CoachTools !== 'undefined') CoachTools.handleAction(t.dataset.coachTool);
+        } catch (err) { console.warn('[coach-tool]', err); }
+        return;
       }
       if (t.dataset.attendanceTraining) {
         e.preventDefault();

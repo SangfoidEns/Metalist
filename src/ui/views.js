@@ -62,6 +62,7 @@ const Views = {
 
     return `
       <div class="st">Головна · МЕТАЛІСТ ШТУТГАРТ</div>
+      ${typeof CoachTools !== 'undefined' ? CoachTools.panelHtml() : ''}
       <div class="dg">
         <div class="sc"><div class="lb">Доступні гравці</div><div class="vl">${avail}</div><div class="sb">з ${s.players.length}</div></div>
         <div class="sc"><div class="lb">Травмовані / відновлення</div><div class="vl" style="color:var(--danger)">${injured}</div></div>
@@ -707,6 +708,19 @@ const Views = {
       const acc = s.accent || '#c8a84b';
       return `
       <div class="st">Налаштування</div>
+      <div class="card glass coach-tools-settings">
+        <div class="ct">Telegram · інструменти тренера</div>
+        <p class="note-sm">Синхронізація Cloud Storage, шеринг плану та складу в чат команди.</p>
+        <div class="coach-tools-grid">
+          <button type="button" class="btn btn-s coach-tool" data-coach-tool="sync-push">☁ Зберегти в Cloud</button>
+          <button type="button" class="btn btn-s coach-tool" data-coach-tool="sync-pull">☁ Завантажити з Cloud</button>
+          <button type="button" class="btn btn-s coach-tool" data-coach-tool="share-training">📤 План у чат</button>
+          <button type="button" class="btn btn-s coach-tool" data-coach-tool="share-roster">👥 Склад у чат</button>
+          <button type="button" class="btn btn-s coach-tool" data-coach-tool="export">📦 Експорт JSON</button>
+        </div>
+        <p class="note-sm" id="tgStatusLine" style="margin-top:8px"></p>
+      </div>
+
       <div class="card"><div class="ct">Клуб</div>
         <div class="fg">
           <div class="fgr"><label>Назва</label><input id="setName" value="${sanitize(s.clubName || 'МЕТАЛІСТ ШТУТГАРТ')}"></div>

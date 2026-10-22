@@ -4642,3 +4642,24 @@ body.drawer-open #drawerBackdrop {
   padding: 16px 16px 6px;
   opacity: 0.85;
 }
+
+/* Coach tools */
+.coach-tools-panel, .coach-tools-settings {
+  margin-bottom: 14px;
+}
+.coach-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+@media (max-width: 480px) {
+  .coach-tools-grid { grid-template-columns: 1fr; }
+}
+.coach-tools-grid .btn {
+  min-height: 48px;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 13px;
+  padding: 10px 12px;
+}

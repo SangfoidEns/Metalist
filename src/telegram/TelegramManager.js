@@ -370,6 +370,163 @@ const TelegramManager = {
   lockLandscape() {
     try { this.tg && this.tg.lockOrientation && this.tg.lockOrientation('landscape'); } catch (_) {}
   },
+
+  /* ── Діалоги Telegram ── */
+  showAlert(message) {
+    return new Promise((resolve) => {
+      try {
+        if (this.tg && this.tg.showAlert) {
+          this.tg.showAlert(String(message || ''), () => resolve(true));
+          return;
+        }
+      } catch (_) {}
+      try { alert(String(message || '')); } catch (_) {}
+      resolve(true);
+    });
+  },
+
+  showConfirm(message) {
+    return new Promise((resolve) => {
+      try {
+        if (this.tg && this.tg.showConfirm) {
+          this.tg.showConfirm(String(message || ''), (ok) => resolve(!!ok));
+          return;
+        }
+      } catch (_) {}
+      try { resolve(!!confirm(String(message || ''))); } catch (_) { resolve(false); }
+    });
+  },
+
+  showPopup(params) {
+    // params: { title, message, buttons: [{id, type, text}] }
+    return new Promise((resolve) => {
+      try {
+        if (this.tg && this.tg.showPopup) {
+          this.tg.showPopup(params || { message: '' }, (id) => resolve(id || null));
+          return;
+        }
+      } catch (_) {}
+      this.showAlert((params && (params.message || params.title)) || '').then(() => resolve('ok'));
+    });
+  },
+
+  /** Надіслати дані боту (Telegram.WebApp.sendData) — для webhook-сценаріїв */
+  sendDataToBot(payload) {
+    try {
+      if (!this.tg || !this.tg.sendData) {
+        console.warn('[TG] sendData недоступний (лише в inline/keyboard webapps)');
+        return false;
+      }
+      const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      this.tg.sendData(text);
+      this.hapticSuccess();
+      return true;
+    } catch (e) {
+      console.warn('[TG] sendData', e);
+      return false;
+    }
+  },
+
+  openLink(url, tryInstant) {
+    try {
+      if (this.tg && this.tg.openLink) {
+        this.tg.openLink(url, { try_instant_view: !!tryInstant });
+        return true;
+      }
+    } catch (_) {}
+    try { window.open(url, '_blank'); return true; } catch (_) { return false; }
+  },
+
+  openTelegramLink(url) {
+    try {
+      if (this.tg && this.tg.openTelegramLink) {
+        this.tg.openTelegramLink(url);
+        return true;
+      }
+    } catch (_) {}
+    return this.openLink(url);
+  },
+
+  /** Поділитися текстом / файлом через системний Share або TG */
+  async shareText(title, text) {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: title || 'МЕТАЛІСТ ШТУТГАРТ', text: text || '' });
+        this.hapticSuccess();
+        return true;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return false;
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text || '');
+        this.hapticSuccess();
+        if (typeof Toast !== 'undefined') Toast.show('Скопійовано в буфер', 'ok');
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  },
+
+  async shareFile(blob, filename, title) {
+    try {
+      const file = new File([blob], filename || 'export.json', { type: blob.type || 'application/json' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: title || filename });
+        this.hapticSuccess();
+        return true;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return false;
+      console.warn('[TG] shareFile', e);
+    }
+    return false;
+  },
+
+  readClipboard() {
+    return new Promise(async (resolve) => {
+      try {
+        if (this.tg && this.tg.readTextFromClipboard) {
+          this.tg.readTextFromClipboard((text) => resolve(text || ''));
+          return;
+        }
+      } catch (_) {}
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          resolve(await navigator.clipboard.readText());
+          return;
+        }
+      } catch (_) {}
+      resolve('');
+    });
+  },
+
+  /** Запит на запис у CloudStorage / доступ */
+  requestWriteAccess() {
+    return new Promise((resolve) => {
+      try {
+        if (this.tg && this.tg.requestWriteAccess) {
+          this.tg.requestWriteAccess((ok) => resolve(!!ok));
+          return;
+        }
+      } catch (_) {}
+      resolve(true);
+    });
+  },
+
+  isExpanded() {
+    try { return !!(this.tg && this.tg.isExpanded); } catch (_) { return false; }
+  },
+
+  platform() {
+    try { return (this.tg && this.tg.platform) || 'unknown'; } catch (_) { return 'unknown'; }
+  },
+
+  colorScheme() {
+    try { return (this.tg && this.tg.colorScheme) || 'dark'; } catch (_) { return 'dark'; }
+  },
+
   unlockOrientation() {
     try { this.tg && this.tg.unlockOrientation && this.tg.unlockOrientation(); } catch (_) {}
   }
