@@ -4663,3 +4663,9 @@ body.drawer-open #drawerBackdrop {
   font-size: 13px;
   padding: 10px 12px;
 }
+
+/* Diary board attachment */
+#diaryList .btn-p.btn-sm[data-load-diary-board] {
+  white-space: nowrap;
+  font-size: 11px;
+}

@@ -347,6 +347,8 @@ const Views = {
       <div class="card glass guest-hero">
         <div class="guest-title">Офіційний клубний простір</div>
         <p class="note-sm">Ви увійшли як <strong>гість</strong>. Повна статистика доступна гравцям складу та тренеру.</p>
+        <button type="button" class="btn btn-p" data-io="import" data-action="import-trigger" style="width:100%;min-height:48px;margin-top:10px">📥 Імпорт JSON від тренера</button>
+        <p class="note-sm" style="margin-top:8px">Тренер експортує файл → ви імпортуєте і бачите актуальний склад/розклад.</p>
       </div>
       <div class="dg">
         <div class="sc"><div class="lb">Гравців у складі</div><div class="vl">${s.players.length}</div></div>
@@ -890,7 +892,7 @@ const Views = {
       <div class="st">📓 Щоденник тренера
         <button class="btn btn-p btn-sm" data-action="new-diary">+ Запис</button>
       </div>
-      <p class="note-sm">Особисті нотатки, ідеї, спостереження. Можна прив\'язати до гравця, матчу, сцени на дошці.</p>
+      <p class="note-sm">Нотатки + тактичні схеми. При створенні запису або з дошки (📓) можна зберегти знімок поля.</p>
       <div class="sg" style="margin-bottom:12px;flex-wrap:wrap">
         ${cats.map(c => `<button class="sb2" data-diary-filter="${c}" style="font-size:11px">${c}</button>`).join('')}
         <button class="sb2" data-diary-filter="all">Усі</button>
@@ -909,7 +911,7 @@ const Views = {
               ${d.tags && d.tags.length ? `<div class="me">${d.tags.map(t=>'#'+t).join(' ')}</div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;gap:4px">
-              ${d.board ? `<button class="btn btn-s btn-sm" data-load-diary-board="${d.id}">⚽</button>` : ''}
+              ${d.board ? `<button class="btn btn-p btn-sm" data-load-diary-board="${d.id}" title="Відкрити прикріплену дошку">⚽ Дошка${d.boardObjCount ? ' · ' + d.boardObjCount : (d.board.objects ? ' · ' + d.board.objects.length : '')}</button>` : `<button class="btn btn-s btn-sm" data-attach-diary-board="${d.id}" title="Прикріпити поточну дошку">📌 +Дошка</button>`}
               <button class="btn btn-s btn-sm" data-edit-diary="${d.id}">✎</button>
               <button class="btn btn-d btn-sm" data-del-diary="${d.id}">✕</button>
             </div>

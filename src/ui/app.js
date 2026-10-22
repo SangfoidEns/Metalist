@@ -469,7 +469,7 @@ const App = {
   },
 
   /** Дозволені причини переходу на дошку */
-  _boardNavReasons: new Set(['logo', 'preset', 'scheme', 'board-tpl', 'load-board', 'b3-phase', 'special']), // logo + explicit tactical presets only
+  _boardNavReasons: new Set(['logo', 'preset', 'scheme', 'board-tpl', 'load-board', 'b3-phase', 'special', 'diary-board', 'training-board', 'board-link', 'coach-tools', 'tg-main', 'anim-board', 'myex-board']), // logo + explicit tactical presets only
   allowBoardOnce(reason) {
     this._boardNavToken = reason || 'explicit';
   },
@@ -734,6 +734,8 @@ const App = {
       <button type="button" class="tg-sheet-btn" data-sheet-act="edit" data-tid="${t.id}">✏️ Редагувати</button>
       <button type="button" class="tg-sheet-btn" data-sheet-act="attendance" data-tid="${t.id}">✓ Відвідування</button>
       <button type="button" class="tg-sheet-btn" data-sheet-act="dup" data-tid="${t.id}">⧉ Дубль / копія</button>
+      <button type="button" class="tg-sheet-btn" data-sheet-act="open-board" data-tid="${t.id}">⚽ Відкрити дошку</button>
+      <button type="button" class="tg-sheet-btn" data-sheet-act="attach-board" data-tid="${t.id}">📌 Прикріпити поточну дошку</button>
       ${cancelled
         ? `<button type="button" class="tg-sheet-btn" data-sheet-act="restore" data-tid="${t.id}">↩ Відновити (заплановане)</button>`
         : `<button type="button" class="tg-sheet-btn tg-sheet-warn" data-sheet-act="cancel" data-tid="${t.id}">🚫 Скасувати тренування</button>`}
@@ -764,6 +766,8 @@ const App = {
       if (act === 'edit') return Actions.editTraining(tid);
       if (act === 'attendance') return Actions.openAttendance(tid);
       if (act === 'dup') return Actions.dupTraining(tid);
+      if (act === 'open-board') return Actions.openTrainingBoard(tid);
+      if (act === 'attach-board') return Actions.attachBoardToTraining(tid);
       if (act === 'cancel') return Actions.cancelTraining(tid);
       if (act === 'restore') {
         const tr = Store.get().trainings.find(x => x.id === tid);
@@ -845,7 +849,7 @@ const App = {
       const inModal = e.target.closest('#modal, .md, .modal-content, #modalBody, #modalFooter');
       const inSidebarNav = e.target.closest('#sidebar .nav, .sidebar .nav, .sb-scroll');
 
-      const t = e.target.closest('[data-action],[data-view],[data-tool],[data-ai],[data-edit-training],[data-attendance-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],[data-scheme],[data-load-board],[data-del-board],[data-special],[data-day],[data-view-exercise],[data-view-match],[data-del-match],[data-tpl],[data-modal-action],[data-b3-phase],[data-board-tpl],[data-b3-rot],[data-del-myex],[data-add-myex-tr],[data-load-myex-board],[data-del-diary],[data-edit-diary],[data-load-diary-board],[data-diary-filter],[data-play-anim],[data-coach-tool]');
+      const t = e.target.closest('[data-action],[data-view],[data-tool],[data-ai],[data-edit-training],[data-attendance-training],[data-del-training],[data-dup-training],[data-edit-player],[data-del-player],[data-scheme],[data-load-board],[data-del-board],[data-special],[data-day],[data-view-exercise],[data-view-match],[data-del-match],[data-tpl],[data-modal-action],[data-b3-phase],[data-board-tpl],[data-b3-rot],[data-del-myex],[data-add-myex-tr],[data-load-myex-board],[data-del-diary],[data-edit-diary],[data-load-diary-board],[data-attach-diary-board],[data-diary-filter],[data-play-anim],[data-coach-tool]');
       if (!t) {
         // close search
         if (!e.target.closest('.gs')) document.getElementById('gResults')?.classList.remove('show');
@@ -909,6 +913,7 @@ const App = {
       if (action === 'new-myex') return Actions.newMyEx();
       if (action === 'myex-from-board') return Actions.myExFromBoard();
       if (action === 'new-diary') return Actions.newDiary();
+      if (action === 'save-board-diary') return Actions.saveBoardToDiary();
       if (action === 'save-b3-anim') return Actions.saveB3Anim();
       if (action === 'save-anim-to-training') return Actions.saveAnimToTraining();
 
@@ -1120,8 +1125,13 @@ const App = {
       }
       if (action === 'open-training-board') {
         e.preventDefault(); e.stopPropagation();
+        const tid = t.dataset.tid || t.getAttribute('data-tid');
+        if (tid && typeof Actions !== 'undefined' && Actions.openTrainingBoard) {
+          return Actions.openTrainingBoard(tid);
+        }
         Modal.close();
-        Toast.show('Відкрийте дошку через логотип клубу в шапці', 'ok');
+        App.allowBoardOnce('training-board');
+        App.navigate('board');
         return;
       }
       if (t.dataset.delTraining) return Modal.confirm('Видалити тренування?', () => { Store.get().trainings = Store.get().trainings.filter(x => x.id !== t.dataset.delTraining); StorageManager.save(); App.renderCurrent(); Toast.show('Видалено'); });
@@ -1157,8 +1167,11 @@ const App = {
         return;
       }
       if (t.dataset.b3Rot) {
-        Toast.show('Ротація: ' + t.dataset.b3Rot + ' — відкрийте дошку через логотип', 'ok');
-        return;
+        e.preventDefault(); e.stopPropagation();
+        BoardEngine.applyScheme(t.dataset.b3Rot);
+        App.allowBoardOnce('b3-phase');
+        App.navigate('board');
+        Toast.show('Ротація: ' + t.dataset.b3Rot, 'ok');
         return;
       }
       if (t.dataset.delMyex) {
@@ -1193,14 +1206,24 @@ const App = {
       if (t.dataset.loadMyexBoard) {
         e.preventDefault(); e.stopPropagation();
         const ex = (Store.get().myExercises || []).find(x => x.id === t.dataset.loadMyexBoard);
-        if (ex && ex.board) {
-          Store.get().activeBoard.objects = JSON.parse(JSON.stringify(ex.board.objects || []));
-          App.allowBoardOnce('preset');
+        if (!ex) { Toast.show('Вправу не знайдено', 'warn'); return; }
+        const snap = ex.board || (ex.animationId && (Store.get().animations || []).find(a => a.id === ex.animationId)?.board);
+        if (snap && typeof BoardLink !== 'undefined') {
+          BoardLink.openSnapshot(snap, 'myex-board');
+        } else if (snap) {
+          Store.get().activeBoard.objects = JSON.parse(JSON.stringify(snap.objects || []));
+          App.allowBoardOnce('myex-board');
           App.navigate('board');
-          setTimeout(() => { try { BoardEngine.render(); } catch (_) {} }, 50);
-          Toast.show('Дошка вправи', 'ok');
+        } else {
+          App.allowBoardOnce('myex-board');
+          App.navigate('board');
+          Toast.show('У вправи немає дошки — відкрито порожню', 'warn');
         }
         return;
+      }
+      if (t.dataset.editDiary) {
+        e.preventDefault(); e.stopPropagation();
+        return Actions.editDiary(t.dataset.editDiary);
       }
       if (t.dataset.delDiary) {
         Modal.confirm('Видалити запис?', () => {
@@ -1211,12 +1234,19 @@ const App = {
       }
       if (t.dataset.loadDiaryBoard) {
         e.preventDefault(); e.stopPropagation();
-        const d = (Store.get().diary || []).find(x => x.id === t.dataset.loadDiaryBoard);
-        if (d && d.board) {
-          Store.get().activeBoard.objects = JSON.parse(JSON.stringify(d.board.objects || []));
-          try { BoardEngine.render(); } catch (_) {}
-          Toast.show('Зі щоденника завантажено. Відкрийте дошку через логотип.', 'ok');
-        }
+        return Actions.openDiaryBoard(t.dataset.loadDiaryBoard);
+      }
+      if (t.dataset.attachDiaryBoard) {
+        e.preventDefault(); e.stopPropagation();
+        const d = (Store.get().diary || []).find(x => x.id === t.dataset.attachDiaryBoard);
+        if (!d) return;
+        if (typeof BoardLink !== 'undefined') BoardLink.attachTo(d);
+        else d.board = { objects: JSON.parse(JSON.stringify((Store.get().activeBoard || {}).objects || [])) };
+        d.boardObjCount = (d.board && d.board.objects) ? d.board.objects.length : 0;
+        StorageManager.save();
+        Toast.show('Дошку прикріплено до запису', 'ok');
+        try { TelegramManager.hapticSuccess && TelegramManager.hapticSuccess(); } catch (_) {}
+        App.renderCurrent();
         return;
       }
       if (t.dataset.diaryFilter) {
@@ -1233,7 +1263,7 @@ const App = {
         if (anim && anim.board) {
           Store.get().activeBoard.objects = JSON.parse(JSON.stringify(anim.board.objects || []));
           try { BoardEngine.render(); } catch (_) {}
-          Toast.show('Анімацію завантажено. Відкрийте дошку через логотип.', 'ok');
+          App.allowBoardOnce('anim-board'); App.navigate('board'); Toast.show('Анімацію відкрито', 'ok');
         }
         return;
       }
@@ -1268,8 +1298,11 @@ const App = {
       if (t.dataset.modalAction === 'cancel') return Modal.close();
       if (t.dataset.modalAction === 'open-training-board') {
         e.preventDefault(); e.stopPropagation();
+        const tid = t.dataset.tid;
+        if (tid && Actions.openTrainingBoard) return Actions.openTrainingBoard(tid);
         Modal.close();
-        Toast.show('Відкрийте дошку через логотип клубу в шапці', 'ok');
+        App.allowBoardOnce('training-board');
+        App.navigate('board');
         return;
       }
       if (t.dataset.modalAction === 'confirm') {
@@ -1279,6 +1312,10 @@ const App = {
         return;
       }
       // form submits via modal actions with specific handlers
+      if (t.dataset.modalAction === 'create-myex') return Actions.createMyEx();
+      if (t.dataset.modalAction === 'create-diary') return Actions.createDiary();
+      if (t.dataset.modalAction === 'save-diary') return Actions.saveDiary(t.dataset.did);
+      if (t.dataset.modalAction === 'open-diary-board') return Actions.openDiaryBoard(t.dataset.did);
       if (t.dataset.modalAction === 'create-training') return Actions.createTraining();
       if (t.dataset.modalAction === 'save-training') return Actions.saveTraining(t.dataset.tid);
       if (t.dataset.modalAction === 'open-attendance') return Actions.openAttendance(t.dataset.tid);
