@@ -648,7 +648,7 @@ const Views = {
 
     return `
       <div class="st">Аналітика
-        <button type="button" class="btn btn-s btn-sm" data-action="export-json">Експорт</button>
+        <button type="button" class="btn btn-s btn-sm" data-io="export" data-action="export">Експорт</button>
       </div>
       <p class="note-sm">Ураховуються лише тренування з датою ≤ сьогодні (без майбутніх і без скасованих). Навантаження = Тривалість × RPE.</p>
       <div class="dg">

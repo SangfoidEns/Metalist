@@ -483,6 +483,39 @@ const App = {
       try { this.renderCurrent(); } catch (_) {}
     });
   },
+  handleTelegramBack() {
+    try {
+      // спочатку закрити sheet / modal
+      if (document.getElementById('tgActionSheet')) {
+        document.getElementById('tgActionSheet')?.remove();
+        document.getElementById('tgActionBackdrop')?.remove();
+        return;
+      }
+      if (document.getElementById('modal')?.classList.contains('show') ||
+          document.querySelector('#modal.on, .modal.show, .md.show')) {
+        try { Modal.close(); } catch (_) {}
+        return;
+      }
+      // drawer
+      if (document.body.classList.contains('drawer-open') || document.getElementById('sidebar')?.classList.contains('open')) {
+        try { this.closeDrawer && this.closeDrawer(); } catch (_) {
+          document.body.classList.remove('drawer-open');
+          document.getElementById('sidebar')?.classList.remove('open');
+        }
+        return;
+      }
+      if (Store.get().ui.view === 'board') {
+        this.navigate('dashboard');
+        return;
+      }
+      const prev = TelegramManager.popView();
+      this.navigate(prev, { fromBack: true });
+    } catch (e) {
+      console.warn('[back]', e);
+      this.navigate('dashboard');
+    }
+  },
+
   navigate(view) {
     // iOS: після file picker focus може «клікнути» логотип — блокуємо
     try {
@@ -504,6 +537,7 @@ const App = {
     }
     try { this.toggleMobileSidebar(false); } catch (_) {}
     Store.get().ui.view = view;
+    try { this.closeDrawer && this.closeDrawer(); } catch (_) {}
     document.querySelectorAll('.view').forEach(v => {
       v.classList.remove('on');
       // Гарантовано ховаємо неактивні екрани (CSS !important інколи перебивав display)
@@ -519,6 +553,19 @@ const App = {
       el.removeAttribute('aria-hidden');
     }
     document.querySelectorAll('.nav, .mni').forEach(n => n.classList.toggle('on', n.dataset.view === view));
+    try {
+      const opts = arguments[1] || {};
+      if (!opts.fromBack && typeof TelegramManager !== 'undefined') {
+        if (view === 'dashboard') TelegramManager.resetStack('dashboard');
+        else TelegramManager.pushView(view);
+      }
+      if (typeof TelegramManager !== 'undefined' && TelegramManager.syncChromeForView) {
+        TelegramManager.syncChromeForView(view);
+      }
+      if (typeof TelegramManager !== 'undefined' && TelegramManager.haptic) {
+        TelegramManager.haptic('select');
+      }
+    } catch (_) {}
     // Canvas-first workspace on board
     if (view === 'board') {
       document.body.classList.add('board-workspace', 'mode-board-focus');
@@ -1001,6 +1048,13 @@ const App = {
           document.body.classList.remove('board-fs-nav','board-only-mode','mode-board-focus','board-workspace','present-mode');
         }
         App.navigate('dashboard');
+        return;
+      }
+      if (action === 'toggle-menu' || action === 'open-menu' || action === 'menu') {
+        try {
+          if (document.body.classList.contains('drawer-open')) App.closeDrawer();
+          else App.openDrawer();
+        } catch (_) {}
         return;
       }
       if (action === 'toggle-fullscreen') return BoardEngine.toggleFullscreen();
