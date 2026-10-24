@@ -481,7 +481,7 @@ const App = {
     document.documentElement.style.setProperty('--club-accent', s.accent);
     const logo = document.getElementById('clubLogo');
     if (logo) {
-      if (s.logoData) {
+      if (s.logoData && String(s.logoData).startsWith('data:image/')) {
         logo.innerHTML = '<img src="' + s.logoData + '" alt="logo">';
       } else {
         logo.textContent = s.clubShort || 'МШ';

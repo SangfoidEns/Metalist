@@ -1743,7 +1743,7 @@ const BoardEngine = {
         '<div class="bench-avatar-wrap">' + ringSvg +
         '<div class="bench-avatar" style="' + bgStyle + '"><span class="bench-num">' + (o.number || '') + '</span></div></div>' +
         '<div class="bench-meta"><span class="bench-pos">' + (o.position || (pl && pl.position) || '') + '</span> ' +
-        '<span class="bench-name">' + (o.label || '') + '</span>' + tag + '</div></div>';
+        '<span class="bench-name">' + sanitize(o.label || '') + '</span>' + tag + '</div></div>';
     };
     const stOf = (o) => o.status || ((s.players || []).find(p => p.id === o.playerId) || {}).status || '';
     const grOf = (o) => ((s.players || []).find(p => p.id === o.playerId) || {}).group || '';
