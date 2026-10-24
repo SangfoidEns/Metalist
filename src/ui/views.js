@@ -47,6 +47,70 @@ const Views = {
       </div>`;
   },
 
+
+  _posAccent(pos) {
+    const p = String(pos || '').toUpperCase();
+    if (p === 'GK' || p.includes('GK')) return { bg: 'linear-gradient(145deg,#f1c40f33,#f39c1222)', ring: '#f1c40f', label: 'GK' };
+    if (/^CB|^LB|^RB|^LCB|^RCB|^WB|DEF/.test(p)) return { bg: 'linear-gradient(145deg,#3498db33,#2980b922)', ring: '#3498db', label: p };
+    if (/^CM|^CDM|^CAM|^LM|^RM|^DM|MID/.test(p)) return { bg: 'linear-gradient(145deg,#2ecc7133,#27ae6022)', ring: '#2ecc71', label: p };
+    if (/^ST|^CF|^LW|^RW|^SS|ATT|FW/.test(p)) return { bg: 'linear-gradient(145deg,#e74c3c33,#c0392b22)', ring: '#e74c3c', label: p };
+    return { bg: 'linear-gradient(145deg,#9b59b633,#8e44ad22)', ring: '#e8c547', label: p || 'COACH' };
+  },
+
+  _attendanceGifts(attPct) {
+    const n = Math.max(0, Math.min(12, Math.round((Number(attPct) || 0) / 100 * 12)));
+    const pool = ['🎁','⭐','🏆','⚽','🔥','💎','👑','🎯','💪','🛡️','✨','🏅'];
+    return pool.slice(0, Math.max(3, n)); // мінімум 3 для естетики профілю
+  },
+
+  _profilePersonCard() {
+    const s = Store.get();
+    let person = null;
+    let kind = 'coach';
+    try {
+      if (typeof AuthManager !== 'undefined') {
+        if (AuthManager.isPlayer && AuthManager.isPlayer()) {
+          person = AuthManager.getLinkedPlayer && AuthManager.getLinkedPlayer();
+          kind = 'player';
+        }
+      }
+    } catch (_) {}
+    if (!person && kind === 'coach') {
+      // тренер: з TG user або settings
+      let photo = '';
+      let name = 'Artem Serdiuk';
+      try {
+        if (typeof AuthManager !== 'undefined') name = AuthManager.displayName() || name;
+        if (typeof TelegramManager !== 'undefined') {
+          const u = TelegramManager.getUser && TelegramManager.getUser();
+          if (u && u.photo_url) photo = u.photo_url;
+          if (u && (u.first_name || u.last_name)) name = [u.first_name, u.last_name].filter(Boolean).join(' ');
+        }
+      } catch (_) {}
+      // coach photo from settings if uploaded
+      try {
+        if (s.settings && s.settings.coachPhoto) photo = s.settings.coachPhoto;
+      } catch (_) {}
+      const gifts = this._attendanceGifts(85);
+      const acc = this._posAccent('COACH');
+      return { kind: 'coach', name, photo, pos: 'HEAD COACH', accent: acc, gifts, attPct: 85 };
+    }
+    if (person) {
+      const photo = this._resolvePlayerAvatar(person) || person.photoUrl || '';
+      const name = [person.firstName, person.lastName].filter(Boolean).join(' ') || person.name || 'Гравець';
+      let attPct = 70;
+      try {
+        if (typeof LoadModel !== 'undefined' && LoadModel.attendanceRate) {
+          attPct = LoadModel.attendanceRate(s.trainings, person.id) || 0;
+        }
+      } catch (_) {}
+      const gifts = this._attendanceGifts(attPct);
+      const acc = this._posAccent(person.position);
+      return { kind: 'player', name, photo, pos: person.position || '—', accent: acc, gifts, attPct, player: person };
+    }
+    return null;
+  },
+
   _coachHome() {
     const s = Store.get();
     const avail = s.players.filter(p => p.status === 'available' || p.status === 'healthy' || !p.status).length;
@@ -85,30 +149,34 @@ const Views = {
 
     return `
       <div class="club-profile">
-        <!-- Telegram-style hero -->
-        <div class="cp-hero">
-          <div class="cp-orbit" aria-hidden="true">
-            <span class="cp-orb">⚽</span>
-            <span class="cp-orb">🏆</span>
-            <span class="cp-orb">⭐</span>
-            <span class="cp-orb">🛡️</span>
-            <span class="cp-orb">🎯</span>
-            <span class="cp-orb">💪</span>
+        <!-- Telegram-style profile card (coach/player) -->
+        ${(() => {
+          const pc = this._profilePersonCard();
+          if (!pc) return '';
+          const giftsHtml = (pc.gifts || []).map((g, i) =>
+            `<span class="cp-orb" style="--i:${i};--n:${(pc.gifts||[]).length}">${g}</span>`
+          ).join('');
+          const photoHtml = pc.photo
+            ? `<img src="${sanitize(pc.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"/><span class="cp-avatar-ph" style="display:none">${sanitize((pc.name||'?').slice(0,2).toUpperCase())}</span>`
+            : `<span class="cp-avatar-ph">${sanitize((pc.name||'?').slice(0,2).toUpperCase())}</span>`;
+          const openAction = pc.kind === 'coach' ? 'data-action="open-default-board"' : `data-player-id="${pc.player && pc.player.id ? pc.player.id : ''}"`;
+          return `
+        <div class="cp-hero cp-person" style="--pos-bg:${pc.accent.bg};--pos-ring:${pc.accent.ring}">
+          <div class="cp-orbit" aria-hidden="true">${giftsHtml}</div>
+          <button type="button" class="cp-avatar" ${openAction} title="${pc.kind === 'coach' ? 'Дошка' : 'Профіль'}" style="border-color:var(--pos-ring);background:var(--pos-bg)">
+            ${photoHtml}
+          </button>
+          <h1 class="cp-title">${sanitize(pc.name)}</h1>
+          <div class="cp-role-badge" style="border-color:var(--pos-ring);color:var(--pos-ring)">${sanitize(pc.pos)}</div>
+          <div class="cp-club-line">${sanitize(club)}</div>
+          <div class="cp-status">
+            <span class="cp-dot"></span>
+            ${pc.kind === 'player' ? ('Відвідуваність ' + Math.round(pc.attPct) + '% · ' + (pc.gifts||[]).length + ' ★') : sanitize(statusLabel)}
           </div>
-          <button type="button" class="cp-avatar" data-action="open-default-board" title="Відкрити дошку" aria-label="Відкрити тактичну дошку">
-            ${logo
-              ? `<img src="${logo}" alt="">`
-              : `<span class="cp-avatar-ph">${sanitize(short)}</span>`}
-          </button>
-          <h1 class="cp-title">${sanitize(club)}</h1>
-          <button type="button" class="cp-coach" data-action="coach-easter" title="Картка тренера">
-            <span class="cp-coach-role">${sanitize(coachRole)}</span>
-            <span class="cp-coach-name">${sanitize(coachName)}</span>
-            <span class="cp-chev">›</span>
-          </button>
-          <div class="cp-status"><span class="cp-dot"></span>${sanitize(statusLabel)}</div>
-        </div>
+        </div>`;
+        })()}
 
+        <!-- Quick pills -->
         <!-- Quick pills -->
         <div class="cp-pills">
           <button type="button" class="cp-pill cp-pill-p" data-action="new-training">+ Нове тренування</button>

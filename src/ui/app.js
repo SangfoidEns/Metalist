@@ -232,6 +232,62 @@ const App = {
   },
 
   /** Пасхалка: тап по «Тренер» → FIFA-картка тренера (режим перегляду) */
+  
+  openStopwatch() {
+    document.querySelectorAll('.sw-sheet-backdrop').forEach(el => el.remove());
+    const backdrop = document.createElement('div');
+    backdrop.className = 'sw-sheet-backdrop tg-sheet-backdrop';
+    backdrop.innerHTML = `
+      <div class="tg-sheet sw-sheet" role="dialog" aria-label="Секундомір">
+        <div class="tg-sheet-handle"></div>
+        <div class="tg-sheet-title">Секундомір</div>
+        <div class="sw-display">
+          <div class="sw-time" id="swSession">00:00</div>
+          <div class="sw-label">Сесія</div>
+        </div>
+        <div class="sw-actions">
+          <button type="button" class="sw-btn" data-action="timer-start">▶ Старт</button>
+          <button type="button" class="sw-btn" data-action="timer-pause">⏸ Пауза</button>
+          <button type="button" class="sw-btn" data-action="timer-reset">↻ Скинути</button>
+          <button type="button" class="sw-btn" data-action="timer-add" data-sec="30">+30 с</button>
+        </div>
+        <div class="sw-display sw-display-sm">
+          <div class="sw-time" id="swEx">00:00</div>
+          <div class="sw-label">Вправа</div>
+        </div>
+        <div class="sw-actions">
+          <button type="button" class="sw-btn" data-action="extimer-start">▶</button>
+          <button type="button" class="sw-btn" data-action="extimer-pause">⏸</button>
+          <button type="button" class="sw-btn" data-action="extimer-reset">↻</button>
+        </div>
+        <button type="button" class="tg-sheet-btn tg-sheet-cancel" data-sw="close">Закрити</button>
+      </div>`;
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => backdrop.classList.add('show'));
+
+    const sync = () => {
+      try {
+        const a = document.getElementById('timerMain');
+        const b = document.getElementById('timerEx');
+        const sa = document.getElementById('swSession');
+        const sb = document.getElementById('swEx');
+        if (a && sa) sa.textContent = a.textContent || '00:00';
+        if (b && sb) sb.textContent = b.textContent || '00:00';
+      } catch (_) {}
+    };
+    sync();
+    const iv = setInterval(sync, 250);
+    const close = () => {
+      clearInterval(iv);
+      backdrop.classList.remove('show');
+      setTimeout(() => backdrop.remove(), 220);
+    };
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop || e.target.closest('[data-sw="close"]')) close();
+    });
+    try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
+  },
+
   openCoachCard() {
     const name = (typeof AuthManager !== 'undefined' && AuthManager.displayName)
       ? AuthManager.displayName() : 'Artem Serdiuk';
@@ -1457,6 +1513,10 @@ const App = {
           Toast.show(locked ? 'Панель зафіксовано' : 'Панель можна перетягувати', 'ok');
         }
         return;
+      }
+      if (action === 'open-stopwatch') {
+        e.preventDefault(); e.stopPropagation();
+        return this.openStopwatch();
       }
       if (action === 'coach-easter') {
         e.preventDefault(); e.stopPropagation();

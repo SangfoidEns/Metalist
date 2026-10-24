@@ -5761,3 +5761,125 @@ button.cp-stat { cursor: pointer; font: inherit; }
     width: 46px !important; height: 46px !important;
   }
 }
+
+/* PILL HDR + SW + GIFTS */
+.header.glass-pill-hdr {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: max(env(safe-area-inset-top, 8px), 10px) 12px 8px !important;
+}
+.tg-hdr-pill {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 22px !important;
+  background: var(--nav-bg, rgba(18, 22, 30, 0.72)) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border: 0.5px solid var(--border-glass, rgba(255,255,255,0.14)) !important;
+  box-shadow:
+    0 8px 28px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.1) !important;
+}
+.tg-clock-btn {
+  all: unset;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.tg-clock-btn:active {
+  background: rgba(255,255,255,0.08);
+}
+.tg-hdr-timers { display: none !important; }
+
+/* Person card gifts orbit */
+.cp-person {
+  background: var(--pos-bg, transparent);
+  border-radius: 24px;
+  padding: 24px 16px 18px;
+  border: 1px solid var(--border-glass, rgba(255,255,255,0.08));
+  margin-bottom: 14px;
+}
+.cp-person .cp-orbit {
+  width: 180px;
+  height: 180px;
+  top: 12px;
+}
+.cp-person .cp-orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 18px;
+  /* рівномірно по колу */
+  transform:
+    rotate(calc(var(--i) * 360deg / var(--n, 8)))
+    translateY(-78px)
+    rotate(calc(var(--i) * -360deg / var(--n, 8)));
+  animation: none;
+  opacity: 0.95;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+.cp-role-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  border: 1px solid;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.cp-club-line {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Stopwatch sheet */
+.sw-sheet .sw-display {
+  text-align: center;
+  padding: 12px 8px 4px;
+}
+.sw-sheet .sw-time {
+  font-size: 48px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--accent, #e8c547);
+}
+.sw-sheet .sw-display-sm .sw-time { font-size: 32px; }
+.sw-sheet .sw-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 4px 12px;
+}
+.sw-btn {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.07);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.sw-btn:active { background: rgba(255,255,255,0.14); }

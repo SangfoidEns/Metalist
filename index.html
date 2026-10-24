@@ -17,12 +17,11 @@
 <div id="drawerBackdrop" class="drawer-backdrop" aria-hidden="true"></div>
 
 <div class="app" id="app">
-<header class="header header-tg glass-hdr" id="appHeader">
-  <div class="tg-hdr-safe" aria-hidden="true"></div>
-  <div class="tg-hdr-main">
-    <div class="tg-hdr-meta-left" aria-live="polite">
-      <div class="st-line st-clock" id="clock"><strong>—</strong></div>
-    </div>
+<header class="header header-tg glass-hdr glass-pill-hdr" id="appHeader">
+  <div class="tg-hdr-pill">
+    <button type="button" class="tg-clock-btn" id="clockBtn" data-action="open-stopwatch" title="Секундомір" aria-label="Відкрити секундомір">
+      <span class="st-line st-clock" id="clock"><strong>—</strong></span>
+    </button>
     <div class="tg-hdr-center">
       <button type="button" class="tg-emblem" id="club-logo-btn"
         title="Тап — дошка · Утримання 5 с — картка тренера"
@@ -40,29 +39,13 @@
       <div class="st-line st-next" id="nextTr">Наступне: <strong>—</strong></div>
     </div>
   </div>
-  <div class="tg-hdr-timers" aria-label="Таймери">
-    <div class="ht-block" data-timer="session">
-      <span class="ht-label">Сесія</span>
-      <span class="ht-time" id="timerMain">00:00</span>
-      <div class="ht-btns" role="group">
-        <button type="button" class="ht-btn" data-action="timer-start" title="Старт">▶</button>
-        <button type="button" class="ht-btn" data-action="timer-pause" title="Пауза">⏸</button>
-        <button type="button" class="ht-btn" data-action="timer-reset" title="Скинути">↻</button>
-        <button type="button" class="ht-btn" data-action="timer-add" data-sec="30" title="+30 с">+30</button>
-      </div>
-    </div>
-    <div class="ht-sep" aria-hidden="true"></div>
-    <div class="ht-block" data-timer="exercise">
-      <span class="ht-label">Вправа</span>
-      <span class="ht-time" id="timerEx">00:00</span>
-      <div class="ht-btns" role="group">
-        <button type="button" class="ht-btn" data-action="extimer-start" title="Старт">▶</button>
-        <button type="button" class="ht-btn" data-action="extimer-pause" title="Пауза">⏸</button>
-        <button type="button" class="ht-btn" data-action="extimer-reset" title="Скинути">↻</button>
-      </div>
-    </div>
-  </div>
 </header>
+<!-- hidden timer nodes for TimerEngine (UI in stopwatch sheet) -->
+<div id="timerEngineHosts" hidden aria-hidden="true">
+  <span id="timerMain">00:00</span>
+  <span id="timerEx">00:00</span>
+</div>
+
 
 
 
