@@ -290,67 +290,21 @@ const TelegramManager = {
     } catch (_) {}
   },
 
-  /** Контекстні кнопки під поточний екран додатку */
+  /** Контекстні кнопки: без MainButton «Дошка/+Гравець» — навігація лише через glass-tabbar */
   syncChromeForView(view) {
     try {
       if (!this.isTelegram) return;
-      const role = (typeof AuthManager !== 'undefined' && AuthManager.role) ? AuthManager.role : 'coach';
-      const isCoach = role === 'coach';
-
+      // Завжди ховаємо системні TG-кнопки внизу (конфліктують з glass-nav)
+      this.hideMainButton();
+      this.hideSecondaryButton();
       if (view === 'board') {
-        this.hideMainButton();
-        this.hideSecondaryButton();
         this.showBackButton();
         try {
           if (this.tg.disableVerticalSwipes) this.tg.disableVerticalSwipes();
         } catch (_) {}
         return;
       }
-
-      if (view === 'trainings' && isCoach) {
-        this.setMainButton('+ Нове тренування', () => {
-          if (typeof Actions !== 'undefined' && Actions.newTraining) Actions.newTraining();
-        });
-        this.hideSecondaryButton();
-        return;
-      }
-      if (view === 'players' && isCoach) {
-        this.setMainButton('+ Гравець', () => {
-          if (typeof Actions !== 'undefined' && Actions.newPlayer) Actions.newPlayer();
-        });
-        return;
-      }
-      if (view === 'calendar' && isCoach) {
-        this.setMainButton('+ Тренування', () => {
-          if (typeof Actions !== 'undefined' && Actions.newTraining) Actions.newTraining();
-        });
-        return;
-      }
-      if (view === 'diary' && isCoach) {
-        this.setMainButton('+ Нотатка', () => {
-          if (typeof Actions !== 'undefined' && Actions.newDiary) Actions.newDiary();
-          else if (typeof Actions !== 'undefined' && Actions.newDiaryEntry) Actions.newDiaryEntry();
-        });
-        return;
-      }
-      if (view === 'dashboard') {
-        this.hideMainButton();
-        // Secondary: швидкий вхід на дошку для тренера
-        if (isCoach) {
-          this.setSecondaryButton('Дошка', () => {
-            if (typeof App !== 'undefined') {
-              try { App.allowBoardOnce && App.allowBoardOnce('tg-main'); } catch (_) {}
-              App.navigate('board');
-            }
-          });
-        } else {
-          this.hideSecondaryButton();
-        }
-        return;
-      }
-      // інші екрани
-      this.hideMainButton();
-      this.hideSecondaryButton();
+      this.hideBackButton && this.hideBackButton();
     } catch (e) {
       console.warn('[TG] syncChrome', e);
     }

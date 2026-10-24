@@ -8,6 +8,7 @@ const App = {
       try { StorageManager.init(); } catch (e2) { console.error(e2); }
     }
     try { this.applyBranding(); } catch (e) { console.warn('branding', e); }
+    try { this.applyThemeMode((Store.get().settings || {}).theme || 'dark'); } catch (e) { console.warn('theme', e); }
     this.bindEvents();
     try { /* плаваюча навігація вимкнена — статичний сайдбар справа */ } catch (e) { console.warn('nav', e); }
     try { if (typeof AuthManager !== 'undefined') AuthManager.init(); } catch (e) { console.warn('Auth', e); }
@@ -206,6 +207,75 @@ const App = {
     try { StorageManager._ensureImportInput(); } catch (_) {}
   },
 
+  
+  applyThemeMode(theme) {
+    const t = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    document.body.setAttribute('data-theme', t);
+    try {
+      const s = Store.get().settings;
+      s.theme = t;
+      StorageManager.save();
+    } catch (_) {}
+    try {
+      if (typeof TelegramManager !== 'undefined' && TelegramManager.tg) {
+        // не форсимо TG theme — лише наш UI
+      }
+    } catch (_) {}
+  },
+
+  toggleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme') || (Store.get().settings || {}).theme || 'dark';
+    this.applyThemeMode(cur === 'light' ? 'dark' : 'light');
+    try { Toast.show(cur === 'light' ? 'Темна тема' : 'Світла тема', 'ok'); } catch (_) {}
+  },
+
+  /** Пасхалка: тап по «Тренер» → FIFA-картка тренера (режим перегляду) */
+  openCoachCard() {
+    const name = (typeof AuthManager !== 'undefined' && AuthManager.displayName)
+      ? AuthManager.displayName() : 'Artem Serdiuk';
+    const photo = (typeof AuthManager !== 'undefined' && AuthManager.user && AuthManager.user.photo_url)
+      ? AuthManager.user.photo_url : '';
+    document.querySelectorAll('.coach-card-overlay').forEach(el => el.remove());
+    const ov = document.createElement('div');
+    ov.className = 'coach-card-overlay';
+    ov.innerHTML = `
+      <div class="coach-card-fifa" role="dialog" aria-label="Картка тренера">
+        <div class="cc-glow"></div>
+        <div class="cc-frame">
+          <div class="cc-rating">94</div>
+          <div class="cc-pos">HEAD COACH</div>
+          <div class="cc-photo">${photo ? '<img src="'+photo+'" alt="">' : '<div class="cc-photo-ph">АС</div>'}</div>
+          <div class="cc-club">METALIST STUTTGART</div>
+          <div class="cc-name">${(typeof sanitize==='function'?sanitize(name):name).toUpperCase()}</div>
+          <div class="cc-stats">
+            <div class="cc-stat"><span>Leadership</span><b>96</b></div>
+            <div class="cc-stat"><span>Tactics</span><b>95</b></div>
+            <div class="cc-stat"><span>Motivation</span><b>94</b></div>
+            <div class="cc-stat"><span>Mentality</span><b>93</b></div>
+          </div>
+          <div class="cc-traits">
+            <span>★ Master Tactician</span>
+            <span>◆ Player Developer</span>
+            <span>◆ Winning Mentality</span>
+          </div>
+          <button type="button" class="cc-back" data-action="close-coach-card">Повернутися до керування</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add('show'));
+    document.body.classList.add('coach-card-mode');
+    try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
+  },
+
+  closeCoachCard() {
+    document.querySelectorAll('.coach-card-overlay').forEach(el => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 280);
+    });
+    document.body.classList.remove('coach-card-mode');
+  },
+
   openDefaultBoard() {
     try {
       if (typeof StorageManager !== 'undefined' && StorageManager.isIoLocked && StorageManager.isIoLocked()) {
@@ -257,8 +327,9 @@ const App = {
         if (typeof AuthManager !== 'undefined') {
           const role = AuthManager.roleLabel();
           const name = AuthManager.displayName();
-          badge.innerHTML = '<span class="auth-role">' + sanitize(role) + '</span>: ' + sanitize(name);
-          badge.title = AuthManager.user ? ('Telegram ID: ' + AuthManager.user.id) : 'Локальний режим';
+          badge.innerHTML = '<button type="button" class="auth-role-btn" data-action="coach-easter" title="Картка тренера">' +
+            '<span class="auth-role">' + sanitize(role) + '</span>: ' + sanitize(name) + '</button>';
+          badge.title = 'Тап → картка тренера';
         } else {
           badge.textContent = 'Тренер: —';
         }
@@ -1233,7 +1304,7 @@ const App = {
         e.stopPropagation();
         return;
       }
-      if (action === 'open-default-board') {
+      if (action === 'open-default-board' && !e.target.closest('.auth-role-btn, [data-action="coach-easter"]')) {
         e.preventDefault();
         e.stopPropagation();
         App.openDefaultBoard();
@@ -1313,6 +1384,20 @@ const App = {
           Toast.show(locked ? 'Панель зафіксовано' : 'Панель можна перетягувати', 'ok');
         }
         return;
+      }
+      if (action === 'coach-easter') {
+        e.preventDefault(); e.stopPropagation();
+        return this.openCoachCard();
+      }
+      if (action === 'close-coach-card') {
+        e.preventDefault(); e.stopPropagation();
+        return this.closeCoachCard();
+      }
+      if (action === 'toggle-theme') {
+        e.preventDefault(); e.stopPropagation();
+        const set = t.dataset.themeSet;
+        if (set === 'light' || set === 'dark') return this.applyThemeMode(set);
+        return this.toggleTheme();
       }
       if (action === 'toggle-tools-tray') {
         e.preventDefault(); e.stopPropagation();

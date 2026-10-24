@@ -756,7 +756,13 @@ const Views = {
           <button type="button" class="btn btn-s coach-tool" data-coach-tool="sync-pull">☁ Завантажити з Cloud</button>
           <button type="button" class="btn btn-s coach-tool" data-coach-tool="share-training">📤 План у чат</button>
           <button type="button" class="btn btn-s coach-tool" data-coach-tool="share-roster">👥 Склад у чат</button>
-          <button type="button" class="btn btn-s coach-tool" data-coach-tool="export">📦 Експорт JSON</button>
+          <button type="button" class="btn btn-s coach-tool" data-coach-tool="export">📦 Тема інтерфейсу</label>
+          <div class="theme-toggle-row">
+            <button type="button" class="btn btn-s" data-action="toggle-theme" data-theme-set="dark">🌙 Темна</button>
+            <button type="button" class="btn btn-s" data-action="toggle-theme" data-theme-set="light">☀️ Світла</button>
+          </div>
+        </div>
+        <div class="fgr"><label>Експорт JSON</button>
         </div>
         <p class="note-sm" id="tgStatusLine" style="margin-top:8px"></p>
       </div>
