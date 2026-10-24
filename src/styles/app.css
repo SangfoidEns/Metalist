@@ -1878,10 +1878,18 @@ body.role-player .auth-badge {
   border-color: rgba(52, 152, 219, 0.4);
 }
 body.role-player [data-action="reset-all"],
-body.role-player [data-action="import-trigger"],
 body.role-player .sb-export {
   opacity: 0.45;
   pointer-events: none;
+}
+/* Імпорт JSON для гравця — ОБОВ'ЯЗКОВО активний */
+body.role-player [data-action="import-trigger"],
+body.role-player [data-io="import"],
+body.role-guest [data-action="import-trigger"],
+body.role-guest [data-io="import"] {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 
 /* Логотип = вхід на дошку */
@@ -4442,37 +4450,56 @@ body.mode-board-focus #boardToolbarBottom {
 }
 
 .tg-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  z-index: 100000;
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.72) !important;
+  z-index: 200000 !important;
   opacity: 0;
   transition: opacity 0.2s ease;
   pointer-events: none;
+  display: flex !important;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 10px max(10px, env(safe-area-inset-bottom, 10px));
+  isolation: isolate;
 }
 .tg-sheet-backdrop.show {
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
+/* .tg-sheet — клас у JS; .tg-action-sheet — legacy alias */
+.tg-sheet,
 .tg-action-sheet {
-  position: fixed;
-  left: 8px;
-  right: 8px;
-  bottom: max(8px, env(safe-area-inset-bottom, 8px));
-  z-index: 100001;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  max-width: 480px;
+  z-index: 200001 !important;
   border-radius: 16px;
   padding: 8px 10px 12px;
-  background: rgba(22, 28, 40, 0.92);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-  transform: translateY(110%);
-  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.2, 1);
-  max-height: min(70vh, 480px);
+  /* суцільний фон — без просвічування списку під меню */
+  background: #1c2330 !important;
+  background: linear-gradient(180deg, #222a38 0%, #161c28 100%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.65);
+  transform: translateY(24px);
+  opacity: 0.96;
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.2, 1), opacity 0.2s ease;
+  max-height: min(72vh, 520px);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto !important;
 }
-.tg-action-sheet.show { transform: translateY(0); }
+.tg-sheet-backdrop.show .tg-sheet,
+.tg-sheet-backdrop.show .tg-action-sheet,
+.tg-action-sheet.show {
+  transform: translateY(0);
+  opacity: 1;
+}
 .tg-sheet-handle {
   width: 36px; height: 4px; border-radius: 99px;
   background: rgba(255,255,255,0.25);
@@ -4717,4 +4744,226 @@ body.drawer-open #drawerBackdrop {
 .tg-sheet-preview {
   padding: 12px 16px; font-size: 13px; line-height: 1.45;
   color: var(--text, #e2e8f0); white-space: normal;
+}
+
+/* BOARD FILL 2026 — без чорних смуг, без накладання хедера */
+body.board-active .header,
+body.view-board .header,
+.app.board-mode .header {
+  /* на екрані дошки хедер додатку ховаємо — дошка має свій chrome */
+}
+#v-board.view-board.on,
+#v-board.on.view-board {
+  display: flex !important;
+  flex-direction: column !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 5000 !important;
+  background: #0a0f0a !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+}
+#v-board .board-chrome-top,
+#v-board .btb-top,
+#boardToolbarTop {
+  flex: 0 0 auto;
+  z-index: 20;
+  padding-top: max(env(safe-area-inset-top, 8px), 8px);
+}
+#v-board .board-field-wrap,
+#v-board .board-stage,
+#v-board #boardStage,
+#v-board .field-wrap {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+}
+#v-board canvas,
+#v-board .board-canvas,
+#v-board #boardCanvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+#v-board .board-chrome-bottom,
+#v-board .btb-bottom,
+#boardToolbarBottom {
+  flex: 0 0 auto !important;
+  z-index: 20;
+  padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+  background: #12181f !important;
+}
+/* коли активна дошка — ховаємо глобальний хедер/нав, щоб не накладались */
+body.board-on .header,
+body.board-on .sidebar,
+body.board-on .mn,
+body.board-on #mobileNav {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* BTB DOCK 2026 — компактна панель + Telegram-style tray */
+#boardToolbarBottom.btb-bottom,
+.btb.btb-bottom {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+  z-index: 40;
+}
+.btb-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: rgba(12, 16, 22, 0.94);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 28px rgba(0,0,0,0.35);
+}
+.btb-primary {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.btb-primary::-webkit-scrollbar { display: none; }
+.btb-primary .tb {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 12px;
+  font-size: 16px;
+}
+.btb-primary .tb-more { margin-left: auto; }
+.tb-more {
+  background: linear-gradient(135deg, #c8a84b 0%, #e8c547 100%) !important;
+  color: #1a1a1a !important;
+  font-weight: 800 !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(200, 168, 75, 0.4);
+}
+.tb-more.on {
+  background: rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+  box-shadow: none;
+}
+.tb-more-icon { font-size: 18px; line-height: 1; }
+
+.btb-tray {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: max-height 0.32s cubic-bezier(0.2, 0.9, 0.2, 1),
+              opacity 0.22s ease,
+              transform 0.32s cubic-bezier(0.2, 0.9, 0.2, 1);
+  background: rgba(18, 22, 30, 0.98);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  pointer-events: none;
+}
+.btb-tray.open {
+  max-height: min(42vh, 320px);
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.btb-tray-handle {
+  width: 36px; height: 4px; border-radius: 99px;
+  background: rgba(255,255,255,0.22);
+  margin: 8px auto 6px;
+}
+.btb-tray-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 12px 14px;
+}
+.btb-tray-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 4px;
+  padding-left: 2px;
+}
+.btb-tray-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.btb-tray-row .tb {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.btb-tray-row .tb.on {
+  background: var(--club-accent, #e8c547);
+  color: #14180f;
+  border-color: transparent;
+}
+.btb-tray-row-selects select {
+  flex: 1 1 auto;
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  font-size: 13px;
+}
+.btb-dock .palette-swatches {
+  display: none;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 0 2px 2px;
+  overflow-x: auto;
+}
+.btb-dock .palette-swatches.open { display: flex; }
+.btb-dock .color-swatch {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px;
+  border-radius: 50% !important;
+  border: 2px solid rgba(255,255,255,0.25) !important;
+  padding: 0 !important;
+}
+.btb-dock .color-swatch.on {
+  box-shadow: 0 0 0 2px var(--club-accent);
+}
+@media (max-width: 480px) {
+  .btb-primary .tb {
+    width: 36px; height: 36px; min-width: 36px; font-size: 14px;
+  }
+  .btb-dock {
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .btb-tray.open { max-height: min(38vh, 260px); }
+  .btb-bottom .btb-rows { display: none !important; }
 }

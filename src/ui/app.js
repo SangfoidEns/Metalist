@@ -639,6 +639,12 @@ const App = {
   },
 
   renderCurrent() {
+    try {
+      const v = (Store.get().ui && Store.get().ui.view) || 'dashboard';
+      document.body.classList.toggle('board-on', v === 'board');
+      document.body.classList.toggle('board-active', v === 'board');
+    } catch (_) {}
+
     const view = (Store.get().ui && Store.get().ui.view) || 'dashboard';
     if (view === 'board') {
       try {
@@ -726,7 +732,7 @@ const App = {
     backdrop.className = 'tg-sheet-backdrop';
     const sheet = document.createElement('div');
     sheet.id = 'tgActionSheet';
-    sheet.className = 'tg-action-sheet glass';
+    sheet.className = 'tg-sheet';
     sheet.innerHTML = `
       <div class="tg-sheet-handle"></div>
       <div class="tg-sheet-title">${typeof sanitize === 'function' ? sanitize(t.name) : t.name}</div>
@@ -742,18 +748,31 @@ const App = {
       <button type="button" class="tg-sheet-btn tg-sheet-danger" data-sheet-act="delete" data-tid="${t.id}">🗑 Видалити</button>
       <button type="button" class="tg-sheet-btn tg-sheet-cancel" data-sheet-act="close">Закрити</button>
     `;
+    sheet.className = 'tg-sheet';
+    // структура тренування в прев'ю
+    const struct = (t.structure || []).map(b =>
+      '• ' + (b.title || b.name || 'Блок') + ' — ' + (b.duration || 0) + ' хв'
+    ).join('<br>');
+    if (struct) {
+      const prev = document.createElement('div');
+      prev.className = 'tg-sheet-preview';
+      prev.innerHTML = (t.mainGoal ? ('🎯 ' + (typeof sanitize === 'function' ? sanitize(t.mainGoal) : t.mainGoal) + '<br><br>') : '') + struct;
+      const sub = sheet.querySelector('.tg-sheet-sub');
+      if (sub && sub.nextSibling) sheet.insertBefore(prev, sub.nextSibling);
+      else sheet.appendChild(prev);
+    }
+    backdrop.appendChild(sheet);
     document.body.appendChild(backdrop);
-    document.body.appendChild(sheet);
     requestAnimationFrame(() => {
       backdrop.classList.add('show');
-      sheet.classList.add('show');
     });
     const close = () => {
       backdrop.classList.remove('show');
-      sheet.classList.remove('show');
-      setTimeout(() => { backdrop.remove(); sheet.remove(); }, 220);
+      setTimeout(() => { backdrop.remove(); }, 220);
     };
-    backdrop.addEventListener('click', close);
+    backdrop.addEventListener('click', e => {
+      if (e.target === backdrop) close();
+    });
     sheet.addEventListener('click', e => {
       const btn = e.target.closest('[data-sheet-act]');
       if (!btn) return;
@@ -782,6 +801,41 @@ const App = {
           Toast.show('Видалено');
         });
       }
+    });
+    try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
+  },
+
+  openSquadDialog() {
+    const s = Store.get();
+    const starters = (s.players || []).filter(p => p.isStarter || p.squadRole === 'starter' || (!(p.status === 'injured' || p.status === 'rehab' || p.status === 'recovery') && p.isStarter !== false));
+    const injured = (s.players || []).filter(p => p.status === 'injured' || p.status === 'rehab' || p.status === 'recovery');
+    const reserve = (s.players || []).filter(p => !injured.includes(p) && !starters.includes(p));
+    const line = (arr) => arr.slice().sort((a,b)=>(a.number||0)-(b.number||0)).map(p =>
+      '#' + (p.number||'—') + ' ' + (p.lastName || p.firstName || '') + (p.position ? ' (' + p.position + ')' : '')
+    ).join('<br>') || '—';
+    document.querySelectorAll('.tg-sheet-backdrop').forEach(el => el.remove());
+    const backdrop = document.createElement('div');
+    backdrop.className = 'tg-sheet-backdrop';
+    backdrop.innerHTML = '<div class="tg-sheet" role="dialog">' +
+      '<div class="tg-sheet-handle"></div>' +
+      '<div class="tg-sheet-title">Склад команди</div>' +
+      '<div class="tg-sheet-sub">' + (s.players||[]).length + ' гравців</div>' +
+      '<div class="tg-sheet-preview"><b>Основа / у строю</b><br>' + line(starters) +
+      '<br><br><b style="color:#f87171">Травма / відновлення</b><br>' + line(injured) +
+      '<br><br><b>Резерв</b><br>' + line(reserve) + '</div>' +
+      '<button type="button" class="tg-sheet-btn" data-sq="players">Відкрити повний список</button>' +
+      '<button type="button" class="tg-sheet-btn tg-sheet-cancel" data-sq="close">Закрити</button></div>';
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(function() { backdrop.classList.add('show'); });
+    const close = function() { backdrop.classList.remove('show'); setTimeout(function(){ backdrop.remove(); }, 220); };
+    backdrop.addEventListener('click', function(e) {
+      if (e.target === backdrop) return close();
+      const btn = e.target.closest('[data-sq]');
+      if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      const act = btn.dataset.sq;
+      close();
+      if (act === 'players') App.navigate('players');
     });
     try { TelegramManager.haptic && TelegramManager.haptic('medium'); } catch (_) {}
   },
@@ -1018,7 +1072,7 @@ const App = {
 
     root.addEventListener('pointerdown', e => {
       const row = e.target.closest(
-        '.card-training[data-training-id], .tg-row[data-training-id], .pl-row[data-player-id], .scheme-row[data-board-id], .sc-next-training[data-next-training], .coach-tools-handle'
+        '.card-training[data-training-id], .tg-row[data-training-id], .pl-row[data-player-id], .scheme-row[data-board-id], .sc-next-training[data-next-training], .coach-tools-handle, .sc-tap[data-view="players"]'
       );
       if (!row) return;
       if (e.target.closest('button:not(.coach-tools-handle), a, input, select, textarea')) return;
@@ -1026,6 +1080,7 @@ const App = {
       this._lpTarget = row;
       row.classList.add('tg-row-holding');
       const kind = row.classList.contains('pl-row') ? 'player'
+        : (row.matches && row.matches('.sc-tap[data-view="players"]')) ? 'squad'
         : row.classList.contains('scheme-row') ? 'scheme'
         : row.classList.contains('sc-next-training') ? 'next-training'
         : row.classList.contains('coach-tools-handle') ? 'coach-tools'
@@ -1035,7 +1090,8 @@ const App = {
         this._lpTimer = null;
         if (this._lpTarget && !this._lpMoved) {
           this._lpTarget.classList.remove('tg-row-holding');
-          if (kind === 'player') this.openPlayerActionSheet(id);
+          if (kind === 'squad') this.openSquadDialog();
+          else if (kind === 'player') this.openPlayerActionSheet(id);
           else if (kind === 'scheme') this.openSchemeActionSheet(id);
           else if (kind === 'next-training') this.openNextTrainingPreview(id);
           else if (kind === 'coach-tools') {
@@ -1125,7 +1181,17 @@ const App = {
         App.navigate(view);
         return;
       }
-      if (t.dataset.tool) { Store.get().activeBoard.tool = t.dataset.tool; BoardEngine.renderToolbar(); return; }
+      if (t.dataset.tool) {
+        const ab = Store.get().activeBoard;
+        ab.tool = t.dataset.tool;
+        if (ab.toolsTrayOpen && window.innerWidth < 900) {
+          ab.toolsTrayOpen = false;
+          document.body.classList.remove('tools-tray-open');
+        }
+        BoardEngine.renderToolbar();
+        try { TelegramManager.haptic && TelegramManager.haptic('selection'); } catch (_) {}
+        return;
+      }
       if (t.dataset.ai) {
         const map = { training: () => AIService.generateTraining(), warmup: () => AIService.generateExercise('warmup'),
           tech: () => AIService.generateExercise('tech'), tactical: () => AIService.generateExercise('tactical'),
@@ -1248,10 +1314,23 @@ const App = {
         }
         return;
       }
+      if (action === 'toggle-tools-tray') {
+        e.preventDefault(); e.stopPropagation();
+        const ab = Store.get().activeBoard;
+        if (!ab) return;
+        ab.toolsTrayOpen = !ab.toolsTrayOpen;
+        if (ab.toolsTrayOpen) ab.paletteOpen = false;
+        document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
+        try { BoardEngine.renderToolbar(); } catch (_) {}
+        try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
+        return;
+      }
       if (action === 'toggle-palette') {
         e.preventDefault(); e.stopPropagation();
         const ab = Store.get().activeBoard;
         ab.paletteOpen = !ab.paletteOpen;
+        if (ab.paletteOpen) ab.toolsTrayOpen = false;
+        document.body.classList.toggle('tools-tray-open', false);
         try { BoardEngine.renderToolbar(); } catch (_) {}
         return;
       }
@@ -1347,6 +1426,11 @@ const App = {
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
         // ТІЛЬКИ модалка деталей — без переходу на дошку
         return Actions.editTraining(t.dataset.editTraining);
+      }
+      if (t.dataset.nextTraining) {
+        e.preventDefault(); e.stopPropagation();
+        if (this._lpSuppressClick) return;
+        return this.openNextTrainingPreview(t.dataset.nextTraining);
       }
       if (t.dataset.playerSort) {
         e.preventDefault(); e.stopPropagation();

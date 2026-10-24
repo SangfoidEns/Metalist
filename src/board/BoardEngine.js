@@ -2228,77 +2228,98 @@ const BoardEngine = {
       </div>`;
     }
 
-    // ── НИЗ: інструменти малювання у темній смузі ──
+    // ── НИЗ: компактна док-панель + Telegram-style висувний лоток ──
     if (bottom) {
       bottom.className = 'btb btb-bottom';
+      const trayOpen = !!ab.toolsTrayOpen;
       bottom.innerHTML = `
-      <div class="btb-rows">
-        <div class="tg">
+      <div class="btb-dock" role="toolbar" aria-label="Інструменти дошки">
+        <div class="btb-primary">
           <button class="tb ${tool==='select'?'on':''}" data-tool="select" title="Вибір">↖</button>
           <button class="tb ${tool==='player'?'on':''}" data-tool="player" title="Гравець">●</button>
           <button class="tb ${tool==='opponent'?'on':''}" data-tool="opponent" title="Суперник">○</button>
           <button class="tb ${tool==='ball'?'on':''}" data-tool="ball" title="М'яч">⚽</button>
-        </div>
-        <div class="tg">
           <button class="tb ${tool==='pass'?'on':''}" data-tool="pass" title="Пас">⇒</button>
           <button class="tb ${tool==='run'?'on':''}" data-tool="run" title="Рух">⇢</button>
           <button class="tb ${tool==='dribble'?'on':''}" data-tool="dribble" title="Ведення">∿</button>
-          <button class="tb ${tool==='press'?'on':''}" data-tool="press" title="Пресинг">⚡</button>
-          <button class="tb ${tool==='shot'?'on':''}" data-tool="shot" title="Удар">↓</button>
-          <button class="tb ${tool==='arrow'?'on':''}" data-tool="arrow" title="Стрілка">→</button>
-          <button class="tb ${tool==='arrowDash'?'on':''}" data-tool="arrowDash" title="Пунктир">⤳</button>
-        </div>
-        <div class="tg">
           <button type="button" class="tb tb-palette-toggle" data-action="toggle-palette" title="Палітра">🎨</button>
-          <span class="palette-swatches ${paletteOpen ? 'open' : ''}" id="paletteSwatches">
-            <button type="button" class="tb color-swatch ${drawCol==='#ecf0f1'?'on':''}" data-action="set-draw-color" data-color="#ecf0f1" style="background:#ecf0f1" title="Білий"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#3498db'?'on':''}" data-action="set-draw-color" data-color="#3498db" style="background:#3498db" title="Синій"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#2ecc71'?'on':''}" data-action="set-draw-color" data-color="#2ecc71" style="background:#2ecc71" title="Зелений"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#f1c40f'?'on':''}" data-action="set-draw-color" data-color="#f1c40f" style="background:#f1c40f" title="Жовтий"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#e67e22'?'on':''}" data-action="set-draw-color" data-color="#e67e22" style="background:#e67e22" title="Помаранчевий"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#e74c3c'?'on':''}" data-action="set-draw-color" data-color="#e74c3c" style="background:#e74c3c" title="Червоний"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#9b59b6'?'on':''}" data-action="set-draw-color" data-color="#9b59b6" style="background:#9b59b6" title="Фіолетовий"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#1a73e8'?'on':''}" data-action="set-draw-color" data-color="#1a73e8" style="background:#1a73e8" title="Синій клуб"></button>
-            <button type="button" class="tb color-swatch ${drawCol==='#111111'?'on':''}" data-action="set-draw-color" data-color="#111111" style="background:#111;border:1px solid #666" title="Чорний"></button>
-          </span>
+          <button type="button" class="tb tb-more ${trayOpen?'on':''}" data-action="toggle-tools-tray" title="Більше інструментів" aria-expanded="${trayOpen?'true':'false'}">
+            <span class="tb-more-icon">${trayOpen ? '✕' : '⊕'}</span>
+          </button>
         </div>
-        <div class="tg inv-group" title="Інвентар">
-          <button class="tb ${tool==='chip'?'on':''}" data-tool="chip" title="Фішка">●</button>
-          <button class="tb ${tool==='chipLarge'?'on':''}" data-tool="chipLarge" title="Велика фішка">⬤</button>
-          <button class="tb ${tool==='cone'?'on':''}" data-tool="cone" title="Конус">▲</button>
-          <button class="tb ${tool==='wall'?'on':''}" data-tool="wall" title="Стінка / манекен">▮</button>
-          <button class="tb ${tool==='markDot'?'on':''}" data-tool="markDot" title="Точка розмітки">·</button>
-          <button class="tb ${tool==='markSquare'?'on':''}" data-tool="markSquare" title="Квадрат розмітки">▢</button>
-          <button class="tb ${tool==='pole'?'on':''}" data-tool="pole" title="Стійка">│</button>
-          <button class="tb ${tool==='minigoal'?'on':''}" data-tool="minigoal" title="Міні-ворота">⊓</button>
+        <div class="palette-swatches ${paletteOpen ? 'open' : ''}" id="paletteSwatches">
+          <button type="button" class="tb color-swatch ${drawCol==='#ecf0f1'?'on':''}" data-action="set-draw-color" data-color="#ecf0f1" style="background:#ecf0f1" title="Білий"></button>
+          <button type="button" class="tb color-swatch ${drawCol==='#3498db'?'on':''}" data-action="set-draw-color" data-color="#3498db" style="background:#3498db" title="Синій"></button>
+          <button type="button" class="tb color-swatch ${drawCol==='#2ecc71'?'on':''}" data-action="set-draw-color" data-color="#2ecc71" style="background:#2ecc71" title="Зелений"></button>
+          <button type="button" class="tb color-swatch ${drawCol==='#f1c40f'?'on':''}" data-action="set-draw-color" data-color="#f1c40f" style="background:#f1c40f" title="Жовтий"></button>
+          <button type="button" class="tb color-swatch ${drawCol==='#e67e22'?'on':''}" data-action="set-draw-color" data-color="#e67e22" style="background:#e67e22" title="Помаранчевий"></button>
+          <button type="button" class="tb color-swatch ${drawCol==='#e74c3c'?'on':''}" data-action="set-draw-color" data-color="#e74c3c" style="background:#e74c3c" title="Червоний"></button>
+          <button type="button" class="tb color-swatch ${drawCol==='#9b59b6'?'on':''}" data-action="set-draw-color" data-color="#9b59b6" style="background:#9b59b6" title="Фіолетовий"></button>
+          <button type="button" class="tb color-swatch ${drawCol==='#000000'?'on':''}" data-action="set-draw-color" data-color="#000000" style="background:#000" title="Чорний"></button>
         </div>
-        <div class="tg">
-          <button class="tb ${tool==='zone'?'on':''}" data-tool="zone" title="Зона">⬚</button>
-          <button class="tb ${tool==='circle'?'on':''}" data-tool="circle" title="Коло">○</button>
-          <button class="tb ${tool==='polygon'?'on':''}" data-tool="polygon" title="Багатокутник">⬠</button>
-          <button class="tb ${tool==='freehand'?'on':''}" data-tool="freehand" title="Вільна лінія">✎</button>
-          <button class="tb ${tool==='text'?'on':''}" data-tool="text" title="Текст">T</button>
-        </div>
-        <div class="tg">
-          <select id="fieldViewSel" title="Вид поля" style="padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px">
-            <option value="full">Повне</option>
-            <option value="half">Половина</option>
-            <option value="attack">Атака</option>
-            <option value="defense">Захист</option>
-          </select>
-          <select id="schemeSel" title="Схема" style="padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px">
-            <option value="">Схема…</option>
-            ${Object.keys(typeof SCHEMES!=='undefined'?SCHEMES:{}).map(k => '<option value="'+k+'">'+k+'</option>').join('')}
-          </select>
-        </div>
-        <div class="tg">
-          <button class="tb" data-action="anim-play" title="Відтворити">▶</button>
-          <button class="tb" data-action="anim-pause" title="Пауза">⏸</button>
-          <button class="tb" data-action="anim-stop" title="Стоп">⏹</button>
-          <button class="tb" data-action="anim-step-prev" title="Крок −">⏮</button>
-          <button class="tb" data-action="anim-step-next" title="Крок +">⏭</button>
-          <span id="stepInd" class="step-ind">—</span>
-          <button class="tb" data-action="export-gif" title="GIF">GIF</button>
+      </div>
+      <div class="btb-tray ${trayOpen?'open':''}" id="btbToolsTray" aria-hidden="${trayOpen?'false':'true'}">
+        <div class="btb-tray-handle"></div>
+        <div class="btb-tray-grid">
+          <div class="btb-tray-sec">
+            <div class="btb-tray-label">Стрілки</div>
+            <div class="btb-tray-row">
+              <button class="tb ${tool==='press'?'on':''}" data-tool="press" title="Пресинг">⚡</button>
+              <button class="tb ${tool==='shot'?'on':''}" data-tool="shot" title="Удар">↓</button>
+              <button class="tb ${tool==='arrow'?'on':''}" data-tool="arrow" title="Стрілка">→</button>
+              <button class="tb ${tool==='arrowDash'?'on':''}" data-tool="arrowDash" title="Пунктир">⤳</button>
+            </div>
+          </div>
+          <div class="btb-tray-sec">
+            <div class="btb-tray-label">Інвентар</div>
+            <div class="btb-tray-row">
+              <button class="tb ${tool==='cone'?'on':''}" data-tool="cone" title="Конус">▲</button>
+              <button class="tb ${tool==='coneBig'?'on':''}" data-tool="coneBig" title="Великий конус">△</button>
+              <button class="tb ${tool==='chip'?'on':''}" data-tool="chip" title="Фішка">◉</button>
+              <button class="tb ${tool==='chipLarge'?'on':''}" data-tool="chipLarge" title="Велика фішка">⬤</button>
+              <button class="tb ${tool==='wall'?'on':''}" data-tool="wall" title="Стінка">▬</button>
+              <button class="tb ${tool==='man'?'on':''}" data-tool="man" title="Манекен">🧍</button>
+              <button class="tb ${tool==='goal'?'on':''}" data-tool="goal" title="Ворота">⊓</button>
+              <button class="tb ${tool==='dot'?'on':''}" data-tool="dot" title="Точка">·</button>
+            </div>
+          </div>
+          <div class="btb-tray-sec">
+            <div class="btb-tray-label">Розмітка</div>
+            <div class="btb-tray-row">
+              <button class="tb ${tool==='zone'?'on':''}" data-tool="zone" title="Зона">⬚</button>
+              <button class="tb ${tool==='circle'?'on':''}" data-tool="circle" title="Коло">○</button>
+              <button class="tb ${tool==='polygon'?'on':''}" data-tool="polygon" title="Багатокутник">⬠</button>
+              <button class="tb ${tool==='freehand'?'on':''}" data-tool="freehand" title="Вільна лінія">✎</button>
+              <button class="tb ${tool==='text'?'on':''}" data-tool="text" title="Текст">T</button>
+            </div>
+          </div>
+          <div class="btb-tray-sec">
+            <div class="btb-tray-label">Поле та схема</div>
+            <div class="btb-tray-row btb-tray-row-selects">
+              <select id="fieldViewSel" title="Вид поля">
+                <option value="full">Повне</option>
+                <option value="half">Половина</option>
+                <option value="attack">Атака</option>
+                <option value="defense">Захист</option>
+              </select>
+              <select id="schemeSel" title="Схема">
+                <option value="">Схема…</option>
+                ${Object.keys(typeof SCHEMES!=='undefined'?SCHEMES:{}).map(k => '<option value="'+k+'">'+k+'</option>').join('')}
+              </select>
+            </div>
+          </div>
+          <div class="btb-tray-sec">
+            <div class="btb-tray-label">Анімація</div>
+            <div class="btb-tray-row">
+              <button class="tb" data-action="anim-play" title="Відтворити">▶</button>
+              <button class="tb" data-action="anim-pause" title="Пауза">⏸</button>
+              <button class="tb" data-action="anim-stop" title="Стоп">⏹</button>
+              <button class="tb" data-action="anim-step-prev" title="Крок −">⏮</button>
+              <button class="tb" data-action="anim-step-next" title="Крок +">⏭</button>
+              <span id="stepInd" class="step-ind">—</span>
+              <button class="tb" data-action="export-gif" title="GIF">GIF</button>
+            </div>
+          </div>
         </div>
       </div>`;
     } else if (top) {
