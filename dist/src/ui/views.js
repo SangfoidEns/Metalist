@@ -48,6 +48,21 @@ const Views = {
   },
 
 
+  _initials(name) {
+    const p = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return 'МШ';
+    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+    return ((p[0][0] || '') + (p[p.length - 1][0] || '')).toUpperCase();
+  },
+  _cleanDisplayName(name) {
+    return String(name || '')
+      .replace(/[\u200B-\u200D\uFEFF\u2060\u00AD]/g, '')
+      .replace(/[\uFE00-\uFE0F]/g, '')
+      .replace(/[\u2600-\u27BF]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
+
   _posAccent(pos) {
     const p = String(pos || '').toUpperCase();
     if (p === 'GK' || p.includes('GK')) return { bg: 'linear-gradient(145deg,#f1c40f33,#f39c1222)', ring: '#f1c40f', label: 'GK' };
@@ -93,7 +108,7 @@ const Views = {
       } catch (_) {}
       const gifts = this._attendanceGifts(85);
       const acc = this._posAccent('COACH');
-      return { kind: 'coach', name, photo, pos: 'HEAD COACH', accent: acc, gifts, attPct: 85 };
+      return { kind: 'coach', name: this._cleanDisplayName(name), photo, pos: 'ГОЛОВНИЙ ТРЕНЕР', accent: acc, gifts: [], attPct: 85, initials: this._initials(name) };
     }
     if (person) {
       const photo = this._resolvePlayerAvatar(person) || person.photoUrl || '';
@@ -106,7 +121,7 @@ const Views = {
       } catch (_) {}
       const gifts = this._attendanceGifts(attPct);
       const acc = this._posAccent(person.position);
-      return { kind: 'player', name, photo, pos: person.position || '—', accent: acc, gifts, attPct, player: person };
+      return { kind: 'player', name: this._cleanDisplayName(name), photo, pos: person.position || '—', accent: acc, gifts: [], attPct, player: person, initials: this._initials(name) };
     }
     return null;
   },
@@ -149,34 +164,37 @@ const Views = {
 
     return `
       <div class="club-profile">
+        <div class="app-build-tag" aria-hidden="true">build 2026.10.24-c · full</div>
+
         <!-- Telegram-style profile card (coach/player) -->
         ${(() => {
           const pc = this._profilePersonCard();
           if (!pc) return '';
-          const giftsHtml = (pc.gifts || []).map((g, i) =>
-            `<span class="cp-orb" style="--i:${i};--n:${(pc.gifts||[]).length}">${g}</span>`
-          ).join('');
-          const photoHtml = pc.photo
-            ? `<img src="${sanitize(pc.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"/><span class="cp-avatar-ph" style="display:none">${sanitize((pc.name||'?').slice(0,2).toUpperCase())}</span>`
-            : `<span class="cp-avatar-ph">${sanitize((pc.name||'?').slice(0,2).toUpperCase())}</span>`;
-          const openAction = pc.kind === 'coach' ? 'data-action="open-default-board"' : `data-player-id="${pc.player && pc.player.id ? pc.player.id : ''}"`;
+          const avAction = pc.kind === 'coach'
+            ? 'data-action="open-default-board"'
+            : (pc.player && pc.player.id ? ('data-action="open-fifa-card" data-player-id="' + pc.player.id + '"') : '');
+          const ph = pc.photo
+            ? `<img src="${sanitize(pc.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"/><span class="cp-avatar-ph" style="display:none">${sanitize(pc.initials || '??')}</span>`
+            : `<span class="cp-avatar-ph">${sanitize(pc.initials || '??')}</span>`;
           return `
-        <div class="cp-hero cp-person" style="--pos-bg:${pc.accent.bg};--pos-ring:${pc.accent.ring}">
-          <div class="cp-orbit" aria-hidden="true">${giftsHtml}</div>
-          <button type="button" class="cp-avatar" ${openAction} title="${pc.kind === 'coach' ? 'Дошка' : 'Профіль'}" style="border-color:var(--pos-ring);background:var(--pos-bg)">
-            ${photoHtml}
+        <div class="cp-hero cp-person cp-clean" style="--pos-bg:${pc.accent.bg};--pos-ring:${pc.accent.ring}">
+          <button type="button" class="cp-avatar" ${avAction}
+            title="${pc.kind === 'coach' ? 'Дошка' : 'FIFA-картка'}"
+            style="border-color:var(--pos-ring);background:var(--pos-bg)">
+            ${ph}
           </button>
           <h1 class="cp-title">${sanitize(pc.name)}</h1>
           <div class="cp-role-badge" style="border-color:var(--pos-ring);color:var(--pos-ring)">${sanitize(pc.pos)}</div>
           <div class="cp-club-line">${sanitize(club)}</div>
           <div class="cp-status">
             <span class="cp-dot"></span>
-            ${pc.kind === 'player' ? ('Відвідуваність ' + Math.round(pc.attPct) + '% · ' + (pc.gifts||[]).length + ' ★') : sanitize(statusLabel)}
+            ${pc.kind === 'player'
+              ? ('Відвідуваність ' + Math.round(pc.attPct || 0) + '% · тап по фото → FIFA')
+              : sanitize(statusLabel)}
           </div>
         </div>`;
         })()}
 
-        <!-- Quick pills -->
         <!-- Quick pills -->
         <div class="cp-pills">
           <button type="button" class="cp-pill cp-pill-p" data-action="new-training">+ Нове тренування</button>
@@ -546,13 +564,38 @@ const Views = {
     const nextMatch = s.matches.filter(m => m.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     const pastTr = (s.trainings || []).filter(t => t.status === 'done' || (t.date && t.date < today() && t.status !== 'cancelled'))
       .sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 8);
-    const schemes = (s.boards || s.savedBoards || []).slice().sort((a, b) => (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '')).slice(0, 6);
+    const schemes = (s.boards || s.savedBoards || []).slice(0, 6);
+    const club = (s.settings && s.settings.clubName) || 'Metalist Stuttgart';
+    const fullName = me ? this._cleanDisplayName([me.firstName, me.lastName].filter(Boolean).join(' ') || me.name || 'Гравець') : '';
+    const pc = me ? {
+      kind: 'player',
+      name: fullName,
+      photo: this._resolvePlayerAvatar(me) || me.photoUrl || '',
+      pos: me.position || '—',
+      accent: this._posAccent(me.position),
+      attPct: stats.attPct || 0,
+      player: me,
+      initials: this._initials(fullName)
+    } : null;
+    const photoHtml = pc && pc.photo
+      ? `<img src="${sanitize(pc.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"/><span class="cp-avatar-ph" style="display:none">${sanitize(pc.initials)}</span>`
+      : (pc ? `<span class="cp-avatar-ph">${sanitize(pc.initials)}</span>` : '');
 
     return `
       <div class="st">Мій кабінет · МЕТАЛІСТ ШТУТГАРТ
         <button type="button" class="btn btn-s btn-sm" data-io="import" data-action="import-trigger">Імпорт JSON</button>
       </div>
-      ${me ? this._fifaCard(me, stats) : this._noPlayerLink()}
+      ${pc ? `
+        <div class="cp-hero cp-person cp-clean" style="--pos-bg:${pc.accent.bg};--pos-ring:${pc.accent.ring}">
+          <button type="button" class="cp-avatar" data-action="open-fifa-card" data-player-id="${pc.player.id}"
+            title="FIFA-картка" style="border-color:var(--pos-ring);background:var(--pos-bg)">
+            ${photoHtml}
+          </button>
+          <h1 class="cp-title">${sanitize(pc.name)}</h1>
+          <div class="cp-role-badge" style="border-color:var(--pos-ring);color:var(--pos-ring)">${sanitize(pc.pos)}</div>
+          <div class="cp-club-line">${sanitize(club)}</div>
+          <div class="cp-status"><span class="cp-dot"></span>Відвідуваність ${Math.round(pc.attPct)}% · тап по фото → FIFA</div>
+        </div>` : this._noPlayerLink()}
 
       <div class="cp-pills player-quick">
         <button type="button" class="cp-pill cp-pill-primary" data-action="open-default-board">⚽ Дошка</button>
@@ -571,27 +614,26 @@ const Views = {
       </div>
 
       <div class="card glass">
-        <div class="ct">Останні тренування (лише перегляд)</div>
+        <div class="ct">Останні тренування</div>
         <div class="player-tr-list">${pastTr.length ? pastTr.map(t => {
           const a = me && t.attendance && t.attendance[me.id];
           const present = a ? (a.present !== false) : null;
-          const badge = present === true ? '✅' : (present === false ? '❌' : '—');
+          const badge = present === true ? '✓' : (present === false ? '✗' : '—');
           const rpe = a && a.rpe != null ? ('RPE ' + a.rpe) : '';
           return `<div class="player-tr-row">
             <span class="ptr-badge">${badge}</span>
             <span class="ptr-name">${sanitize(t.name || 'Тренування')}</span>
             <span class="ptr-meta">${sanitize(t.date || '')} ${rpe}</span>
           </div>`;
-        }).join('') : '<p class="note-sm">Немає даних відвідування. Імпортуйте JSON від тренера.</p>'}</div>
+        }).join('') : '<p class="note-sm">Немає даних. Імпортуйте JSON від тренера.</p>'}</div>
       </div>
 
       <div class="card glass">
-        <div class="ct">Схеми · повний контроль дошки</div>
-        <p class="note-sm">Можна відкривати схеми, малювати, зберігати власні. Редагування складу/тренувань — лише у тренера.</p>
+        <div class="ct">Схеми</div>
         <div class="player-scheme-list">${schemes.length ? schemes.map(b =>
           `<button type="button" class="btn btn-s btn-sm" data-load-board="${b.id}" style="margin:4px">${sanitize(b.name || 'Схема')}</button>`
-        ).join('') : '<span class="note-sm">Поки немає збережених схем</span>'}
-        <button type="button" class="btn btn-p btn-sm" data-action="open-default-board" style="margin:4px">Нова на дошці</button>
+        ).join('') : '<span class="note-sm">Немає схем</span>'}
+        <button type="button" class="btn btn-p btn-sm" data-action="open-default-board" style="margin:4px">Дошка</button>
         </div>
       </div>`;
   },

@@ -6328,3 +6328,99 @@ body.role-guest [data-action="new-player"] {
 body.role-player .player-quick { display: flex !important; }
 body.role-player .player-stats-card { display: block !important; }
 body.role-player .fifa-card { display: block !important; }
+
+.app-build-tag {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #e8c547;
+  opacity: 0.85;
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(232, 197, 71, 0.12);
+  border: 0.5px solid rgba(232, 197, 71, 0.35);
+}
+.cp-person .cp-orbit:empty { display: none !important; }
+.cp-title {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+}
+.cp-role-badge {
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase;
+}
+
+/* Header balance v2 */
+.tg-hdr-pill {
+  grid-template-columns: 1fr auto 1fr !important;
+  align-items: center !important;
+  min-height: 64px !important;
+  padding: 8px 12px !important;
+}
+.tg-clock-btn {
+  justify-self: start !important;
+  font-size: 13px !important;
+  font-variant-numeric: tabular-nums !important;
+  font-weight: 700 !important;
+  padding: 8px 10px !important;
+}
+.tg-hdr-center { justify-self: center !important; }
+.tg-emblem { width: 48px !important; height: 48px !important; margin: 0 auto !important; }
+.tg-emblem-face, .tg-emblem .logo-ph { width: 48px !important; height: 48px !important; }
+.tg-hdr-titles { max-width: 160px !important; }
+.tg-hdr-titles .brand-title { font-size: 11px !important; text-align: center !important; }
+.tg-hdr-titles .brand-coach { font-size: 10px !important; text-align: center !important; }
+.tg-next-btn {
+  justify-self: end !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 2px !important;
+  max-width: 110px !important;
+  padding: 6px 8px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: transparent !important;
+  color: inherit !important;
+  cursor: pointer !important;
+}
+.tg-next-label {
+  font-size: 9px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--muted) !important;
+  font-weight: 700 !important;
+}
+.tg-next-val {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100px !important;
+}
+.cp-clean .cp-orbit { display: none !important; }
+.cp-clean {
+  text-align: center !important;
+  padding: 28px 16px 20px !important;
+  border-radius: 24px !important;
+}
+.cp-clean .cp-avatar {
+  width: 88px !important;
+  height: 88px !important;
+  margin: 0 auto 12px !important;
+  border-radius: 50% !important;
+  border-width: 3px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.cp-clean .cp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cp-clean .cp-avatar-ph { font-size: 28px !important; font-weight: 800 !important; }
+.cp-clean .cp-title { font-size: 20px !important; margin: 0 0 8px !important; }
+.fifa-modal-wrap .fifa-card { display: block !important; margin: 0 !important; }

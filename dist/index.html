@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>МЕТАЛІСТ ШТУТГАРТ — Coaching Platform</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="stylesheet" href="./src/styles/app.css?v=20261024c">
+<link rel="stylesheet" href="./src/styles/app.css?v=20261024e">
 </head>
 <body>
 <div id="drawerBackdrop" class="drawer-backdrop" aria-hidden="true"></div>
@@ -19,25 +19,25 @@
 <div class="app" id="app">
 <header class="header header-tg glass-hdr glass-pill-hdr" id="appHeader">
   <div class="tg-hdr-pill">
-    <button type="button" class="tg-clock-btn" id="clockBtn" data-action="open-stopwatch" title="Секундомір" aria-label="Відкрити секундомір">
-      <span class="st-line st-clock" id="clock"><strong>—</strong></span>
+    <button type="button" class="tg-clock-btn" id="clockBtn" data-action="open-stopwatch" title="Секундомір">
+      <span id="clock"><strong>—</strong></span>
     </button>
     <div class="tg-hdr-center">
       <button type="button" class="tg-emblem" id="club-logo-btn"
-        title="Тап — дошка · Утримання 5 с — картка тренера"
-        aria-label="Емблема клубу">
+        title="Тап — дошка · 5 с — картка тренера" aria-label="Емблема">
         <span class="tg-emblem-ring" aria-hidden="true"></span>
         <span class="logo-ph tg-emblem-face" id="clubLogo">МШ</span>
         <span class="tg-emblem-progress" id="emblemProgress" hidden></span>
       </button>
       <div class="tg-hdr-titles">
-        <div class="brand-title" id="clubName">МЕТАЛІСТ <em>ШТУТГАРТ</em></div>
-        <div class="brand-coach" id="authBadge">Тренер: —</div>
+        <div class="brand-title" id="clubName">METALIST <em>STUTTGART</em></div>
+        <div class="brand-coach" id="authBadge">—</div>
       </div>
     </div>
-    <div class="tg-hdr-meta-right" aria-live="polite">
-      <div class="st-line st-next" id="nextTr">Наступне: <strong>—</strong></div>
-    </div>
+    <button type="button" class="tg-next-btn" id="nextTrBtn" data-view="trainings" title="Тренування">
+      <span class="tg-next-label">Далі</span>
+      <span class="tg-next-val" id="nextTr">—</span>
+    </button>
   </div>
 </header>
 <!-- hidden timer nodes for TimerEngine (UI in stopwatch sheet) -->
@@ -161,24 +161,24 @@
 <div class="tc2" id="toasts" aria-live="polite"></div>
 
 
-  <script src="./src/core/utils.js?v=20261024c"></script>
-  <script src="./src/telegram/TelegramManager.js?v=20261024c"></script>
-  <script src="./src/core/toast.js?v=20261024c"></script>
-  <script src="./src/data/demo.js?v=20261024c"></script>
-  <script src="./src/data/schemes.js?v=20261024c"></script>
-  <script src="./src/core/store.js?v=20261024c"></script>
-  <script src="./src/core/auth.js?v=20261024c"></script>
-  <script src="./src/core/storage.js?v=20261024c"></script>
-  <script src="./src/board/TimerEngine.js?v=20261024c"></script>
-  <script src="./src/board/BoardEngine.js?v=20261024c"></script>
-  <script src="./src/core/modal.js?v=20261024c"></script>
-  <script src="./src/core/loadModel.js?v=20261024c"></script>
-  <script src="./src/core/coachTools.js?v=20261024c"></script>
-  <script src="./src/core/boardLink.js?v=20261024c"></script>
-  <script src="./src/ui/views.js?v=20261024c"></script>
-  <script src="./src/ui/ai.js?v=20261024c"></script>
-  <script src="./src/ui/app.js?v=20261024c"></script>
-  <script src="./src/ui/actions.js?v=20261024c"></script>
+  <script src="./src/core/utils.js?v=20261024e"></script>
+  <script src="./src/telegram/TelegramManager.js?v=20261024e"></script>
+  <script src="./src/core/toast.js?v=20261024e"></script>
+  <script src="./src/data/demo.js?v=20261024e"></script>
+  <script src="./src/data/schemes.js?v=20261024e"></script>
+  <script src="./src/core/store.js?v=20261024e"></script>
+  <script src="./src/core/auth.js?v=20261024e"></script>
+  <script src="./src/core/storage.js?v=20261024e"></script>
+  <script src="./src/board/TimerEngine.js?v=20261024e"></script>
+  <script src="./src/board/BoardEngine.js?v=20261024e"></script>
+  <script src="./src/core/modal.js?v=20261024e"></script>
+  <script src="./src/core/loadModel.js?v=20261024e"></script>
+  <script src="./src/core/coachTools.js?v=20261024e"></script>
+  <script src="./src/core/boardLink.js?v=20261024e"></script>
+  <script src="./src/ui/views.js?v=20261024e"></script>
+  <script src="./src/ui/ai.js?v=20261024e"></script>
+  <script src="./src/ui/app.js?v=20261024e"></script>
+  <script src="./src/ui/actions.js?v=20261024e"></script>
 <script>if ('serviceWorker' in navigator && location.protocol !== 'file:') { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {})); }</script>
 </body>
 </html>

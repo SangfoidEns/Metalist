@@ -456,7 +456,8 @@ const App = {
       if (badge) {
         if (typeof AuthManager !== 'undefined') {
           const role = AuthManager.roleLabel();
-          const name = AuthManager.displayName();
+          let name = AuthManager.displayName() || '';
+          name = String(name).replace(/[\u200B-\u200D\uFEFF\u2060]/g,'').replace(/[\uFE00-\uFE0F]/g,'').replace(/[\u2600-\u27BF]/g,'').replace(/\s+/g,' ').trim();
           badge.innerHTML = '<span class="auth-role">' + sanitize(role) + '</span>: ' + sanitize(name);
           badge.title = AuthManager.user ? ('Telegram ID: ' + AuthManager.user.id) : 'Локальний режим';
         } else {
@@ -853,6 +854,22 @@ const App = {
     this._afterPanelToggle();
   },
 
+  formatNextTr(t) {
+    if (!t) return '—';
+    let name = String(t.name || 'Тр.').replace(/^Тренування\s*/i, 'Тр. ');
+    if (name.length > 16) name = name.slice(0, 14) + '…';
+    return name;
+  },
+  updateNextTrLabel() {
+    try {
+      const el = document.getElementById('nextTr');
+      if (!el) return;
+      const s = Store.get();
+      const next = (s.trainings || []).filter(x => x.status === 'planned' && x.date >= (typeof today === 'function' ? today() : '')).sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0];
+      el.textContent = next ? this.formatNextTr(next) : '—';
+      el.title = next ? ((next.name || '') + ' · ' + (next.date || '')) : '';
+    } catch (_) {}
+  },
   syncRoleClass() {
     try {
       document.body.classList.remove('role-coach', 'role-player', 'role-guest');
@@ -865,6 +882,7 @@ const App = {
   },
   renderCurrent() {
     try { this.syncRoleClass(); } catch (_) {}
+    try { this.updateNextTrLabel(); } catch (_) {}
 
     try {
       const v = (Store.get().ui && Store.get().ui.view) || 'dashboard';
@@ -1538,6 +1556,20 @@ const App = {
           const locked = tb.classList.contains('btb-locked');
           localStorage.setItem('ms_btb_locked', locked ? '1' : '0');
           Toast.show(locked ? 'Панель зафіксовано' : 'Панель можна перетягувати', 'ok');
+        }
+        return;
+      }
+      if (action === 'open-fifa-card') {
+        e.preventDefault(); e.stopPropagation();
+        const pid = (t.dataset && t.dataset.playerId) || t.getAttribute('data-player-id');
+        const p = (Store.get().players || []).find(x => x.id === pid);
+        if (p && typeof Views !== 'undefined' && Views._fifaCard) {
+          const st = Views._playerStats ? Views._playerStats(p.id) : {};
+          const html = Views._fifaCard(p, st);
+          if (typeof Modal !== 'undefined' && Modal.open) {
+            Modal.open('FIFA-картка', '<div class="fifa-modal-wrap">' + html + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+          }
+          try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
         }
         return;
       }
