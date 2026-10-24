@@ -106,6 +106,21 @@ const BoardEngine = {
     // Resize
     if (window.ResizeObserver) {
       new ResizeObserver(() => { this.applyCamera(); this.renderTokens(); this.renderDrawings(); }).observe(c);
+      // Freeze guard: clear stuck multi-touch state that leaves zoom indicator active without movement
+      if (!this._freezeGuard) {
+        this._freezeGuard = setInterval(() => {
+          try {
+            if (this.pointers && this.pointers.size && !this.dragObj && !this.panStart && !this.drawing && !this.benchDragId) {
+              // no recent activity — clear
+              if (!this._lastPtrTs || (Date.now() - this._lastPtrTs > 1200)) {
+                this.pointers.clear();
+                this.lastPinchDist = 0;
+                this.updateZoomIndicator && this.updateZoomIndicator();
+              }
+            }
+          } catch (_) {}
+        }, 800);
+      }
     window.addEventListener('orientationchange', () => {
       setTimeout(() => { this.fitField(); this.render(); }, 200);
     });
@@ -560,6 +575,7 @@ const BoardEngine = {
 
   /* ── POINTER MOVE — ZERO LAG path ── */
   onPointerMove(e) {
+    this._lastPtrTs = Date.now();
     const interacting = this.dragObj || this.panStart || this.drawing || this.pointers.size >= 2 || this.benchDragId;
     if (interacting) {
       try { e.preventDefault(); } catch (_) {}
@@ -665,10 +681,17 @@ const BoardEngine = {
     try {
       if (e && e.pointerId != null) this.pointers.delete(e.pointerId);
     } catch (_) {}
-    // Захист від «мертвих» pointerId у Map
-    if (this.pointers.size > 2) {
+    // Захист від «мертвих» pointerId у Map / зависання zoom-індикатора
+    if (this.pointers.size > 2 || (this.pointers.size && !this.dragObj && !this.panStart && !this.drawing)) {
       this.pointers.clear();
       this.lastPinchDist = 0;
+    }
+    // Safety: якщо pointerup без активного жесту — повний скид
+    if (!this.dragObj && !this.panStart && !this.drawing && !this.benchDragId) {
+      this.lastPinchDist = 0;
+      if (this.pointers.size === 0) {
+        try { this.updateZoomIndicator && this.updateZoomIndicator(); } catch (_) {}
+      }
     }
     if (this.pointers.size < 2) {
       this.lastPinchDist = 0;
@@ -2346,6 +2369,11 @@ const BoardEngine = {
     }
     const ss = document.getElementById('schemeSel');
     if (ss) ss.onchange = () => { if (ss.value) BoardEngine.applyScheme(ss.value); };
+    // Sync tray / palette body classes after every toolbar re-render
+    try {
+      document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
+      document.body.classList.toggle('palette-open', !!ab.paletteOpen);
+    } catch (_) {}
   },
 
 };

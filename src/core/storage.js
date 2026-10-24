@@ -46,6 +46,8 @@ const StorageManager = {
       diary: s.diary || [],
       myExercises: s.myExercises || [],
       animations: s.animations || [],
+      gifts: s.gifts || [],
+      moments: s.moments || [],
       activeBoard: {
         objects: (s.activeBoard && s.activeBoard.objects) || [],
         fieldView: (s.activeBoard && s.activeBoard.fieldView) || 'full'
@@ -278,6 +280,13 @@ const StorageManager = {
     if (!base.settings.rbac) {
       base.settings.rbac = { coaches: [], playerLinks: {} };
     }
+    if (Array.isArray(data.diary)) base.diary = data.diary;
+    if (Array.isArray(data.myExercises)) base.myExercises = data.myExercises;
+    if (Array.isArray(data.animations)) base.animations = data.animations;
+    if (Array.isArray(data.gifts)) base.gifts = data.gifts;
+    else base.gifts = base.gifts || [];
+    if (Array.isArray(data.moments)) base.moments = data.moments;
+    else base.moments = base.moments || [];
     base.schemaVersion = SCHEMA_VERSION;
     return base;
   },
@@ -368,6 +377,8 @@ const StorageManager = {
       diary: s.diary || [],
       myExercises: s.myExercises || [],
       animations: s.animations || [],
+      gifts: s.gifts || [],
+      moments: s.moments || [],
       activeBoard: {
         objects: (s.activeBoard && s.activeBoard.objects) || [],
         fieldView: (s.activeBoard && s.activeBoard.fieldView) || 'full'

@@ -106,9 +106,9 @@ const Views = {
       try {
         if (s.settings && s.settings.coachPhoto) photo = s.settings.coachPhoto;
       } catch (_) {}
-      const gifts = this._attendanceGifts(85);
+      const gifts = [];
       const acc = this._posAccent('COACH');
-      return { kind: 'coach', name: this._cleanDisplayName(name), photo, pos: 'ГОЛОВНИЙ ТРЕНЕР', accent: acc, gifts: [], attPct: 85, initials: this._initials(name) };
+      return { kind: 'coach', name: this._cleanDisplayName(name), photo, pos: 'ГОЛОВНИЙ ТРЕНЕР', accent: acc, gifts, attPct: 85, initials: this._initials(name) };
     }
     if (person) {
       const photo = this._resolvePlayerAvatar(person) || person.photoUrl || '';
@@ -119,9 +119,14 @@ const Views = {
           attPct = LoadModel.attendanceRate(s.trainings, person.id) || 0;
         }
       } catch (_) {}
-      const gifts = this._attendanceGifts(attPct);
+      let gifts = [];
+      try {
+        if (typeof CoachTools !== 'undefined' && CoachTools.playerGifts) {
+          gifts = CoachTools.playerGifts(person.id).filter(g => g.attached);
+        }
+      } catch (_) {}
       const acc = this._posAccent(person.position);
-      return { kind: 'player', name: this._cleanDisplayName(name), photo, pos: person.position || '—', accent: acc, gifts: [], attPct, player: person, initials: this._initials(name) };
+      return { kind: 'player', name: this._cleanDisplayName(name), photo, pos: person.position || '—', accent: acc, gifts, attPct, player: person, initials: this._initials(name) };
     }
     return null;
   },
@@ -749,6 +754,56 @@ const Views = {
     }).join('');
   },
 
+
+  /** Тренер відкриває картку гравця так, як її бачить сам гравець + інструменти */
+  coachPlayerDetail(playerId) {
+    const s = Store.get();
+    const p = (s.players || []).find(x => x.id === playerId);
+    if (!p) return '<div class="es">Гравець не знайдений</div>';
+    const st = this._playerStats ? this._playerStats(p.id) : {};
+    const fifa = this._fifaCard(p, st);
+    const compare = this._compareBlock(p, (typeof window !== 'undefined' && window.__coachCompareId) || '');
+    let giftsHtml = '';
+    try {
+      const all = (typeof CoachTools !== 'undefined' && CoachTools.playerGifts) ? CoachTools.playerGifts(p.id) : [];
+      if (all.length) {
+        giftsHtml = '<div class="cpv-section"><div class="cpv-title">Подарунки</div><div class="gift-row">' +
+          all.map(g => '<span class="gift-chip' + (g.attached ? ' attached' : '') + '" title="' + sanitize(g.note || g.label) + '"><span class="gift-ico">' + (g.ico || '★') + '</span>' + sanitize(g.label) + (g.attached ? ' · на профілі' : '') + '</span>').join('') +
+          '</div></div>';
+      }
+    } catch (_) {}
+    let momentsHtml = '';
+    try {
+      const moms = (typeof CoachTools !== 'undefined' && CoachTools.playerMoments) ? CoachTools.playerMoments(p.id) : [];
+      if (moms.length) {
+        momentsHtml = '<div class="cpv-section"><div class="cpv-title">Памʼятні моменти</div>' +
+          moms.slice(0, 8).map(m => '<div class="moment-card"><div class="moment-date">' + sanitize((m.createdAt || '').slice(0, 10)) + '</div><div class="moment-text">' + sanitize(m.text) + '</div></div>').join('') +
+          '</div>';
+      }
+    } catch (_) {}
+    const charts = this._myStatsCharts ? this._myStatsCharts(p, st) : '';
+    const catalog = (typeof CoachTools !== 'undefined' && CoachTools.GIFT_CATALOG) ? CoachTools.GIFT_CATALOG : [];
+    const award = `
+      <div class="cpv-section">
+        <div class="cpv-title">Нагородити подарунком</div>
+        <div class="gift-award-grid">
+          ${catalog.map(g => '<button type="button" class="gift-award-btn" data-action="award-gift" data-player-id="' + p.id + '" data-gift-id="' + g.id + '"><span class="ico">' + g.ico + '</span>' + sanitize(g.label) + '</button>').join('')}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" class="btn-p" data-action="add-moment" data-player-id="${p.id}">✍️ Памʼятний момент</button>
+          <button type="button" class="btn-s" data-action="edit-player-form" data-player-id="${p.id}">Редагувати анкету</button>
+        </div>
+      </div>`;
+    return `<div class="coach-player-view">
+      ${fifa}
+      ${compare}
+      ${charts}
+      ${giftsHtml}
+      ${momentsHtml}
+      ${award}
+    </div>`;
+  },
+
   players() {
     const s = Store.get();
     const sortKey = (s.ui && s.ui.playerSort) || 'role';
@@ -802,7 +857,7 @@ const Views = {
       const st = p.status || 'available';
       const inj = (st === 'injured' || st === 'rehab' || st === 'recovery');
       return `<div class="pl-row tg-row${inj ? ' is-injured' : ''}${!isStarter(p) ? ' is-reserve' : ''}"
-        data-player-id="${p.id}" data-player-row="${p.id}">
+        data-player-id="${p.id}" data-player-row="${p.id}" data-action="open-player-card">
         <span class="pl-num">#${p.number || '—'}</span>
         <span class="pl-name">${sanitize(p.lastName || '')} ${sanitize((p.firstName || '')[0] || '')}.</span>
         <span class="pl-pos">${sanitize(p.position || '')}</span>

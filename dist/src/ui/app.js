@@ -686,21 +686,35 @@ const App = {
 
   _bindPlayerCompare() {
     const sel = document.getElementById('playerCompareSel');
-    if (!sel || sel._bound) return;
-    sel._bound = true;
+    if (!sel) return;
+    // allow rebind after modal re-render
+    if (sel._msCmpBound) return;
+    sel._msCmpBound = true;
     sel.addEventListener('change', () => {
-      try { window.__playerCompareId = sel.value || ''; } catch (_) {}
-      try { 
-    try {
-      document.body.classList.remove('role-coach', 'role-player', 'role-guest');
-      if (typeof AuthManager !== 'undefined') {
-        if (AuthManager.isCoach && AuthManager.isCoach()) document.body.classList.add('role-coach');
-        else if (AuthManager.isPlayer && AuthManager.isPlayer()) document.body.classList.add('role-player');
-        else document.body.classList.add('role-guest');
-      }
-    } catch (_) {}
-
-    this.renderCurrent(); } catch (_) {}
+      const oid = sel.value || '';
+      try {
+        window.__playerCompareId = oid;
+        window.__coachCompareId = oid;
+      } catch (_) {}
+      // Якщо відкрита картка тренера — оновити модалку
+      try {
+        const modalBody = document.getElementById('modalBody');
+        if (modalBody && modalBody.querySelector('.coach-player-view') && typeof Views !== 'undefined' && Views.coachPlayerDetail) {
+          const btn = modalBody.querySelector('[data-player-id]');
+          const pid = btn && btn.getAttribute('data-player-id');
+          if (pid) {
+            const p = (Store.get().players || []).find(x => x.id === pid);
+            const title = 'Картка гравця · ' + ((p && (p.lastName || p.firstName)) || '');
+            if (typeof Modal !== 'undefined' && Modal.open) {
+              Modal.open(title, '<div class="fifa-modal-wrap">' + Views.coachPlayerDetail(pid) + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+              // re-bind select after re-open
+              setTimeout(() => { try { const s2 = document.getElementById('playerCompareSel'); if (s2) { s2._msCmpBound = false; App._bindPlayerCompare(); } } catch (_) {} }, 30);
+              return;
+            }
+          }
+        }
+      } catch (_) {}
+      try { this.renderCurrent(); } catch (_) {}
     });
   },
   handleTelegramBack() {
@@ -995,21 +1009,35 @@ const App = {
   updateClock() {
     const now = new Date();
     const el = document.getElementById('clock');
-    if (el) el.innerHTML = `<strong>${fmtDate(now)}</strong> · ${now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    // Компактно: дата + HH:MM (без секунд — не обрізається в пігулці)
+    if (el) {
+      const d = now.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' });
+      const t = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+      el.innerHTML = '<strong>' + d + '</strong> · ' + t;
+    }
     const s = Store.get();
-    const next = s.trainings.filter(t => t.status === 'planned' && t.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const next = (s.trainings || []).filter(t => t.status === 'planned' && t.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     const nt = document.getElementById('nextTr');
-    if (nt) {
-      if (next) {
-        const dt = new Date(next.date + 'T' + (next.time || '10:00'));
-        const diff = dt - now;
-        let cd = '—';
-        if (diff > 0) {
-          const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
-          cd = h + 'г ' + m + 'хв';
-        }
-        nt.innerHTML = `Наступне: <strong>${sanitize(next.name)}</strong> (${cd})`;
-      } else nt.innerHTML = 'Наступне: <strong>—</strong>';
+    const cdEl = document.getElementById('nextTrCountdown');
+    if (next) {
+      const short = this.formatNextTr ? this.formatNextTr(next) : (next.name || 'Тр.');
+      if (nt) {
+        nt.textContent = short;
+        nt.title = (next.name || '') + ' · ' + (next.date || '') + (next.time ? ' ' + next.time : '');
+      }
+      if (cdEl) {
+        try {
+          const dt = new Date(next.date + 'T' + (next.time || '10:00'));
+          const diff = dt - now;
+          if (diff > 0) {
+            const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
+            cdEl.textContent = 'через ' + h + 'г ' + m + 'хв';
+          } else cdEl.textContent = next.date || '';
+        } catch (_) { cdEl.textContent = next.date || ''; }
+      }
+    } else {
+      if (nt) { nt.textContent = '—'; nt.title = ''; }
+      if (cdEl) cdEl.textContent = '';
     }
   },
 
@@ -1623,18 +1651,92 @@ const App = {
         } catch (_) {}
         return;
       }
-      if (action === 'open-fifa-card') {
+      if (action === 'open-fifa-card' || action === 'open-player-card') {
         e.preventDefault(); e.stopPropagation();
         const pid = (t.dataset && t.dataset.playerId) || t.getAttribute('data-player-id');
         const p = (Store.get().players || []).find(x => x.id === pid);
-        if (p && typeof Views !== 'undefined' && Views._fifaCard) {
+        if (!p) return;
+        try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
+        // Тренер бачить повну картку «як гравець» + інструменти; гравець — лише FIFA
+        const asCoach = (typeof AuthManager !== 'undefined' && AuthManager.isCoach && AuthManager.isCoach());
+        if (asCoach && typeof Views !== 'undefined' && Views.coachPlayerDetail) {
+          const html = Views.coachPlayerDetail(p.id);
+          if (typeof Modal !== 'undefined' && Modal.open) {
+            Modal.open('Картка гравця · ' + (p.lastName || p.firstName || ''), '<div class="fifa-modal-wrap">' + html + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+            setTimeout(() => { try { const s2 = document.getElementById('playerCompareSel'); if (s2) s2._msCmpBound = false; App._bindPlayerCompare(); } catch (_) {} }, 40);
+          }
+        } else if (typeof Views !== 'undefined' && Views._fifaCard) {
           const st = Views._playerStats ? Views._playerStats(p.id) : {};
           const html = Views._fifaCard(p, st);
           if (typeof Modal !== 'undefined' && Modal.open) {
             Modal.open('FIFA-картка', '<div class="fifa-modal-wrap">' + html + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
           }
-          try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
         }
+        return;
+      }
+      if (action === 'player-compare') {
+        e.preventDefault(); e.stopPropagation();
+        const sel = document.getElementById('playerCompareSel');
+        const oid = sel ? sel.value : (t.value || '');
+        if (typeof window !== 'undefined') {
+          window.__playerCompareId = oid;
+          window.__coachCompareId = oid;
+        }
+        // re-render if coach modal context
+        try {
+          const modalBody = document.getElementById('modalBody');
+          if (modalBody && modalBody.querySelector('.coach-player-view')) {
+            const pid = (modalBody.querySelector('[data-player-id]') || {}).getAttribute?.('data-player-id');
+            // find player from fifa num - better from open state
+          }
+        } catch (_) {}
+        try { App.renderCurrent(); } catch (_) {}
+        return;
+      }
+      if (action === 'award-gift') {
+        e.preventDefault(); e.stopPropagation();
+        if (typeof AuthManager !== 'undefined' && AuthManager.isCoach && !AuthManager.isCoach()) {
+          Toast.show('Лише тренер може нагороджувати', 'warn'); return;
+        }
+        const pid = t.dataset.playerId;
+        const gid = t.dataset.giftId;
+        if (pid && gid && typeof CoachTools !== 'undefined' && CoachTools.awardGift) {
+          CoachTools.awardGift(pid, gid, '');
+          // refresh modal if open
+          if (typeof Views !== 'undefined' && Views.coachPlayerDetail && typeof Modal !== 'undefined' && Modal.open) {
+            const p = (Store.get().players || []).find(x => x.id === pid);
+            Modal.open('Картка гравця · ' + ((p && (p.lastName || p.firstName)) || ''), '<div class="fifa-modal-wrap">' + Views.coachPlayerDetail(pid) + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+          }
+        }
+        return;
+      }
+      if (action === 'add-moment') {
+        e.preventDefault(); e.stopPropagation();
+        if (typeof AuthManager !== 'undefined' && AuthManager.isCoach && !AuthManager.isCoach()) {
+          Toast.show('Лише тренер', 'warn'); return;
+        }
+        const pid = t.dataset.playerId;
+        const text = window.prompt('Памʼятний момент з тренування (короткий підпис):', '');
+        if (text && pid && typeof CoachTools !== 'undefined' && CoachTools.addMoment) {
+          CoachTools.addMoment(pid, text, null);
+          if (typeof Views !== 'undefined' && Views.coachPlayerDetail && typeof Modal !== 'undefined' && Modal.open) {
+            const p = (Store.get().players || []).find(x => x.id === pid);
+            Modal.open('Картка гравця · ' + ((p && (p.lastName || p.firstName)) || ''), '<div class="fifa-modal-wrap">' + Views.coachPlayerDetail(pid) + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+          }
+        }
+        return;
+      }
+      if (action === 'attach-gift') {
+        e.preventDefault(); e.stopPropagation();
+        const gid = t.dataset.giftId;
+        if (gid && typeof CoachTools !== 'undefined' && CoachTools.attachGift) CoachTools.attachGift(gid);
+        try { if (typeof App !== 'undefined' && App.renderCurrent) App.renderCurrent(); } catch (_) {}
+        return;
+      }
+      if (action === 'edit-player-form') {
+        e.preventDefault(); e.stopPropagation();
+        const pid = t.dataset.playerId;
+        if (pid && typeof Actions !== 'undefined' && Actions.editPlayer) Actions.editPlayer(pid);
         return;
       }
       if (action === 'open-stopwatch') {
