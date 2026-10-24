@@ -10,6 +10,7 @@ const App = {
     try { this.applyBranding(); } catch (e) { console.warn('branding', e); }
     try { this.applyThemeMode((Store.get().settings || {}).theme || 'dark'); } catch (e) { console.warn('theme', e); }
     this.bindEvents();
+    try { this.bindEmblemGestures(); } catch (e) { console.warn("emblem", e); }
     try { /* плаваюча навігація вимкнена — статичний сайдбар справа */ } catch (e) { console.warn('nav', e); }
     try { if (typeof AuthManager !== 'undefined') AuthManager.init(); } catch (e) { console.warn('Auth', e); }
     try { if (typeof AuthManager !== 'undefined') { AuthManager._resolveRole(); AuthManager._applyUiRole(); } } catch (_) {}
@@ -276,6 +277,79 @@ const App = {
     document.body.classList.remove('coach-card-mode');
   },
 
+  
+  bindEmblemGestures() {
+    const el = document.getElementById('club-logo-btn');
+    if (!el || el._emblemBound) return;
+    el._emblemBound = true;
+    const HOLD_MS = 5000;
+    let timer = null;
+    let startX = 0, startY = 0, moved = false;
+    const progress = document.getElementById('emblemProgress');
+
+    const clear = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      el.classList.remove('holding');
+      if (progress) { progress.hidden = true; progress.style.setProperty('--p', '0'); }
+    };
+
+    const onDown = (e) => {
+      if (e.button != null && e.button !== 0) return;
+      moved = false;
+      startX = e.clientX ?? (e.touches && e.touches[0]?.clientX) ?? 0;
+      startY = e.clientY ?? (e.touches && e.touches[0]?.clientY) ?? 0;
+      el.classList.add('holding');
+      if (progress) {
+        progress.hidden = false;
+        progress.style.setProperty('--p', '0');
+        // CSS animation driven by holding class
+      }
+      timer = setTimeout(() => {
+        timer = null;
+        el.classList.remove('holding');
+        if (progress) progress.hidden = true;
+        // Easter egg: 5s hold
+        try { this.openCoachCard(); } catch (err) { console.error(err); }
+        try { TelegramManager.haptic && TelegramManager.haptic('success'); } catch (_) {}
+      }, HOLD_MS);
+    };
+
+    const onMove = (e) => {
+      if (!timer) return;
+      const x = e.clientX ?? (e.touches && e.touches[0]?.clientX) ?? startX;
+      const y = e.clientY ?? (e.touches && e.touches[0]?.clientY) ?? startY;
+      if (Math.abs(x - startX) > 12 || Math.abs(y - startY) > 12) {
+        moved = true;
+        clear();
+      }
+    };
+
+    const onUp = (e) => {
+      const wasHolding = !!timer;
+      const didMove = moved;
+      clear();
+      // short tap → board (only if not long-press completed and not moved)
+      if (wasHolding && !didMove) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          this.allowBoardOnce && this.allowBoardOnce('logo');
+          this.openDefaultBoard ? this.openDefaultBoard() : this.navigate('board');
+        } catch (err) {
+          console.error(err);
+          try { this.navigate('board'); } catch (_) {}
+        }
+        try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
+      }
+    };
+
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', clear);
+    el.addEventListener('pointerleave', (e) => { if (timer) clear(); });
+  },
+
   openDefaultBoard() {
     try {
       if (typeof StorageManager !== 'undefined' && StorageManager.isIoLocked && StorageManager.isIoLocked()) {
@@ -327,9 +401,8 @@ const App = {
         if (typeof AuthManager !== 'undefined') {
           const role = AuthManager.roleLabel();
           const name = AuthManager.displayName();
-          badge.innerHTML = '<button type="button" class="auth-role-btn" data-action="coach-easter" title="Картка тренера">' +
-            '<span class="auth-role">' + sanitize(role) + '</span>: ' + sanitize(name) + '</button>';
-          badge.title = 'Тап → картка тренера';
+          badge.innerHTML = '<span class="auth-role">' + sanitize(role) + '</span>: ' + sanitize(name);
+          badge.title = AuthManager.user ? ('Telegram ID: ' + AuthManager.user.id) : 'Локальний режим';
         } else {
           badge.textContent = 'Тренер: —';
         }

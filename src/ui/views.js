@@ -56,56 +56,161 @@ const Views = {
     const pastForStats = (typeof LoadModel !== 'undefined' && LoadModel.pastTrainings)
       ? LoadModel.pastTrainings(s.trainings) : s.trainings.filter(t => t.date && t.date <= today() && t.status !== 'cancelled');
     const totalHours = Math.round(pastForStats.reduce((a, t) => a + (t.duration || 0), 0) / 60 * 10) / 10;
+    const totalMin = pastForStats.reduce((a, t) => a + (t.duration || 0), 0);
     const nextMatch = s.matches.filter(m => m.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
-    const recent = s.trainings.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
+    const recent = s.trainings.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 6);
     const drafts = s.trainings.filter(t => t.status === 'draft' || t.status === 'pinned');
-
     const boardCount = (s.boards || []).length;
+    const club = (s.settings && s.settings.clubName) || 'МЕТАЛІСТ ШТУТГАРТ';
+    const short = (s.settings && s.settings.clubShort) || 'МШ';
+    const logo = (s.settings && s.settings.logoData) || '';
+    const coachName = (typeof AuthManager !== 'undefined' && AuthManager.displayName)
+      ? AuthManager.displayName() : 'Artem Serdiuk';
+    const coachRole = (typeof AuthManager !== 'undefined' && AuthManager.roleLabel)
+      ? AuthManager.roleLabel() : 'Тренер';
+
+    const matchHtml = nextMatch ? `
+      <div class="cp-match">
+        <div class="cp-match-teams">
+          <span class="cp-match-us">${sanitize(short)}</span>
+          <span class="cp-match-vs">VS</span>
+          <span class="cp-match-them">${sanitize(nextMatch.opponent || 'Суперник')}</span>
+        </div>
+        <div class="cp-match-meta">${sanitize(nextMatch.date || '')}${nextMatch.time ? ' · ' + sanitize(nextMatch.time) : ''}</div>
+      </div>` : `<div class="cp-match is-empty">Наступний матч не заплановано</div>`;
+
+    const statusLabel = next
+      ? ('Наступне: ' + (next.name || 'Тренування') + (next.date ? ' · ' + next.date : ''))
+      : 'Немає запланованих тренувань';
+
     return `
-      <div class="st">Головна · МЕТАЛІСТ ШТУТГАРТ</div>
-      <div class="home-quick-row">
-        <button type="button" class="btn btn-p btn-sm" data-action="new-training">+ Тренування</button>
-        <button type="button" class="btn btn-s btn-sm" data-view="players">Склад</button>
-        <button type="button" class="btn btn-s btn-sm" data-view="analytics">Статистика</button>
-        <button type="button" class="btn btn-s btn-sm" data-view="tactics">Схеми</button>
-      </div>
-      <div class="coach-tools-collapse glass" id="coachToolsCollapse">
-        <button type="button" class="coach-tools-handle" data-action="toggle-coach-tools" aria-expanded="false">
-          <span>🛠 Інструменти тренера</span>
-          <span class="note-sm">утримуйте або натисніть</span>
-        </button>
-        <div class="coach-tools-body" hidden>
-          ${typeof CoachTools !== 'undefined' ? CoachTools.panelHtml() : ''}
+      <div class="club-profile">
+        <!-- Telegram-style hero -->
+        <div class="cp-hero">
+          <div class="cp-orbit" aria-hidden="true">
+            <span class="cp-orb">⚽</span>
+            <span class="cp-orb">🏆</span>
+            <span class="cp-orb">⭐</span>
+            <span class="cp-orb">🛡️</span>
+            <span class="cp-orb">🎯</span>
+            <span class="cp-orb">💪</span>
+          </div>
+          <button type="button" class="cp-avatar" data-action="open-default-board" title="Відкрити дошку" aria-label="Відкрити тактичну дошку">
+            ${logo
+              ? `<img src="${logo}" alt="">`
+              : `<span class="cp-avatar-ph">${sanitize(short)}</span>`}
+          </button>
+          <h1 class="cp-title">${sanitize(club)}</h1>
+          <button type="button" class="cp-coach" data-action="coach-easter" title="Картка тренера">
+            <span class="cp-coach-role">${sanitize(coachRole)}</span>
+            <span class="cp-coach-name">${sanitize(coachName)}</span>
+            <span class="cp-chev">›</span>
+          </button>
+          <div class="cp-status"><span class="cp-dot"></span>${sanitize(statusLabel)}</div>
         </div>
-      </div>
-      <div class="dg">
-        <div class="sc sc-tap" data-view="players" role="button" title="Відкрити склад">
-          <div class="lb">Доступні гравці</div><div class="vl">${avail}</div><div class="sb">з ${s.players.length} · відкрити</div>
+
+        <!-- Quick pills -->
+        <div class="cp-pills">
+          <button type="button" class="cp-pill cp-pill-p" data-action="new-training">+ Нове тренування</button>
+          <button type="button" class="cp-pill" data-view="players">Склад</button>
+          <button type="button" class="cp-pill" data-view="analytics">Статистика</button>
         </div>
-        <div class="sc"><div class="lb">Травмовані / відновлення</div><div class="vl" style="color:var(--danger)">${injured}</div></div>
-        <div class="sc sc-tap sc-next-training${next ? '' : ' is-empty'}" ${next ? `data-next-training="${next.id}"` : ''} role="button" title="Утримуйте для плану">
-          <div class="lb">Наступне тренування</div>
-          <div class="vl" style="font-size:14px">${next ? sanitize(next.name) : '—'}</div>
-          <div class="sb">${next ? next.date + ' ' + (next.time || '') + ' · утримуйте' : ''}</div>
+
+        <!-- Stats glass grid -->
+        <div class="cp-stats">
+          <button type="button" class="cp-stat sc-tap" data-view="players">
+            <span class="cp-stat-ic">👥</span>
+            <span class="cp-stat-val">${avail}</span>
+            <span class="cp-stat-lb">Гравців у строю</span>
+            <span class="cp-stat-sub">з ${s.players.length} · травма ${injured}</span>
+          </button>
+          <div class="cp-stat">
+            <span class="cp-stat-ic">⏱</span>
+            <span class="cp-stat-val">${totalMin || totalHours}</span>
+            <span class="cp-stat-lb">${totalMin ? 'хв загалом' : 'год'}</span>
+            <span class="cp-stat-sub">${pastForStats.length} тренувань</span>
+          </div>
+          <div class="cp-stat">
+            <span class="cp-stat-ic">📊</span>
+            <span class="cp-stat-val">${weekLoad || 0}</span>
+            <span class="cp-stat-lb">Тижневе навантаження</span>
+            <span class="cp-stat-sub">Duration × RPE</span>
+          </div>
+          <div class="cp-stat">
+            <span class="cp-stat-ic">🕐</span>
+            <span class="cp-stat-val">${totalHours}</span>
+            <span class="cp-stat-lb">Години тренувань</span>
+            <span class="cp-stat-sub">лише минулі</span>
+          </div>
+          <div class="cp-stat cp-stat-wide">
+            <span class="cp-stat-ic">📅</span>
+            <span class="cp-stat-lb">Наступний матч</span>
+            ${matchHtml}
+          </div>
+          <div class="cp-stat">
+            <span class="cp-stat-ic">🗂</span>
+            <span class="cp-stat-val">${boardCount}</span>
+            <span class="cp-stat-lb">Схеми</span>
+            <span class="cp-stat-sub">збережені дошки</span>
+          </div>
         </div>
-        <div class="sc"><div class="lb">Тривалість</div><div class="vl">${next ? next.duration : 0}<span style="font-size:13px"> хв</span></div></div>
-        <div class="sc"><div class="lb">Тижневе навантаження</div><div class="vl">${weekLoad}</div><div class="sb">Duration × RPE</div></div>
-        <div class="sc"><div class="lb">Години тренувань</div><div class="vl">${totalHours}</div></div>
-        <div class="sc"><div class="lb">Наступний матч</div><div class="vl" style="font-size:14px">${nextMatch ? 'vs ' + sanitize(nextMatch.opponent) : '—'}</div><div class="sb">${nextMatch ? nextMatch.date : ''}</div></div>
-        <div class="sc"><div class="lb">Тренувань</div><div class="vl">${s.trainings.length}</div></div>
-      </div>
-      <div class="qa coach-only">
-        <button class="btn btn-p" data-action="new-training">+ Нове тренування</button>
-        <button class="btn btn-s" data-view="players">👥 Склад</button>
-        <button class="btn btn-s" data-view="analytics">📊 Статистика</button>
-      </div>
-      <div class="card"><div class="ct">Останні тренування</div>
-        ${recent.length ? recent.map(t => `<div class="li"><div class="inf"><div class="ti">${sanitize(t.name)}</div><div class="me">${t.date} · ${t.duration}хв · ${t.status}</div></div>
-          <button class="btn btn-s btn-sm coach-only" data-edit-training="${t.id}">Відкрити</button></div>`).join('') : '<div class="es">Немає тренувань</div>'}
-      </div>
-      <div class="card coach-only"><div class="ct">Чернетки / Закріплені</div>
-        ${drafts.length ? drafts.map(t => `<div class="li"><div class="inf"><div class="ti">${sanitize(t.name)}</div><div class="me"><span class="badge b-i">${t.status}</span></div></div>
-          <button class="btn btn-s btn-sm" data-edit-training="${t.id}">Відкрити</button></div>`).join('') : '<div class="es">Немає чернеток</div>'}
+
+        <!-- Coach tools (collapse) -->
+        <div class="coach-tools-collapse glass cp-block" id="coachToolsCollapse">
+          <button type="button" class="coach-tools-handle" data-action="toggle-coach-tools" aria-expanded="false">
+            <span>🛠 Інструменти тренера</span>
+            <span class="note-sm">утримуйте або натисніть</span>
+          </button>
+          <div class="coach-tools-body" hidden>
+            ${typeof CoachTools !== 'undefined' ? CoachTools.panelHtml() : ''}
+          </div>
+        </div>
+
+        <!-- Recent trainings -->
+        <div class="cp-section">
+          <div class="cp-sec-head">
+            <h2>Останні тренування</h2>
+            <button type="button" class="cp-link" data-view="trainings">Переглянути всі ›</button>
+          </div>
+          <div class="cp-list">
+            ${recent.length ? recent.map(t => {
+              const st = t.status || 'planned';
+              const stClass = st === 'cancelled' || st === 'canceled' ? 'is-cancel' : (st === 'done' || st === 'completed' ? 'is-done' : (st === 'draft' ? 'is-draft' : ''));
+              return `<div class="cp-row card-training tg-row ${stClass}" data-training-id="${t.id}">
+                <div class="cp-row-main">
+                  <div class="cp-row-title">${sanitize(t.name || 'Тренування')}</div>
+                  <div class="cp-row-meta">${sanitize(t.date || '')} · ${t.duration || 0}хв · ${sanitize(st)}</div>
+                </div>
+                <button type="button" class="cp-row-btn coach-only" data-edit-training="${t.id}">Відкрити</button>
+              </div>`;
+            }).join('') : '<div class="cp-empty">Немає тренувань</div>'}
+          </div>
+        </div>
+
+        ${drafts.length ? `
+        <div class="cp-section coach-only">
+          <div class="cp-sec-head"><h2>Чернетки / Закріплені</h2></div>
+          <div class="cp-list">
+            ${drafts.map(t => `<div class="cp-row card-training tg-row" data-training-id="${t.id}">
+              <div class="cp-row-main">
+                <div class="cp-row-title">${sanitize(t.name || 'Чернетка')}</div>
+                <div class="cp-row-meta"><span class="badge b-i">${sanitize(t.status)}</span></div>
+              </div>
+              <button type="button" class="cp-row-btn" data-edit-training="${t.id}">Відкрити</button>
+            </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+        ${next ? `
+        <div class="cp-section">
+          <div class="cp-sec-head"><h2>Наступне тренування</h2></div>
+          <div class="cp-row sc-next-training" data-next-training="${next.id}" role="button">
+            <div class="cp-row-main">
+              <div class="cp-row-title">${sanitize(next.name)}</div>
+              <div class="cp-row-meta">${sanitize(next.date || '')}${next.time ? ' · ' + sanitize(next.time) : ''} · утримайте для плану</div>
+            </div>
+          </div>
+        </div>` : ''}
       </div>`;
   },
 
