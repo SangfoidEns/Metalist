@@ -6709,3 +6709,135 @@ body.role-player [data-io="export"] {
   .tg-hdr-titles { max-width: 120px !important; }
   .tg-next-val { max-width: 90px; }
 }
+
+
+/* ═══ PITCH ASPECT LOCK 2026.10.24-h ═══
+   stage = exact 68:105 box centered in .fc
+   playersLayer % map 1:1 to SVG markings
+*/
+#fieldContainer.fc,
+body.mode-board-focus .fc,
+body.board-workspace .fc,
+.view-board .fc {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  overflow: hidden !important;
+  aspect-ratio: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  background: #0a1210 !important;
+}
+#fieldStage,
+body.mode-board-focus .field-stage,
+.field-stage {
+  position: absolute !important;
+  /* JS sets left/top/width/height via _sizeStageToPitch — do not force inset:0 */
+  inset: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  aspect-ratio: 68 / 105 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  transform-origin: 50% 50% !important;
+  background: #1a5c2e;
+  overflow: visible !important;
+}
+#fieldStage .fs,
+#fieldStage .dl,
+#fieldStage .dl svg,
+#fieldStage .pl,
+#fieldStage #playersLayer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+}
+
+/* Tools tray MUST open on all widths */
+body.tools-tray-open #boardToolbarBottom .btb-tray.open,
+body.tools-tray-open #btbToolsTray,
+#boardToolbarBottom .btb-tray.open {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateY(0) !important;
+  max-height: min(52vh, 380px) !important;
+  z-index: 120 !important;
+}
+
+/* Emblem absolute fix */
+.tg-hdr-center { overflow: visible !important; }
+.tg-emblem {
+  width: 52px !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  border-radius: 50% !important;
+  overflow: visible !important;
+  display: grid !important;
+  place-items: center !important;
+  position: relative !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+.tg-emblem-ring {
+  inset: -5px !important;
+  border-radius: 50% !important;
+  border: 2.5px solid rgba(232,197,71,0.55) !important;
+  box-shadow: 0 0 0 4px rgba(232,197,71,0.12) !important;
+}
+.tg-emblem-face, .tg-emblem .logo-ph, #clubLogo {
+  width: 52px !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  border: 2px solid rgba(255,255,255,0.15) !important;
+}
+.tg-emblem-face img, .tg-emblem .logo-ph img, #clubLogo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block !important;
+}
+
+/* Players table sort headers visible */
+.pl-head {
+  display: grid !important;
+  grid-template-columns: 48px 1fr 52px 56px 64px !important;
+  gap: 4px !important;
+  padding: 8px 10px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--muted) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+.pl-th {
+  background: transparent !important;
+  border: none !important;
+  color: inherit !important;
+  font: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  padding: 4px 2px !important;
+  min-height: 36px !important;
+}
+.pl-th.on { color: var(--accent, #e8c547) !important; }
+.pl-row {
+  display: grid !important;
+  grid-template-columns: 48px 1fr 52px 56px 64px !important;
+  gap: 4px !important;
+  align-items: center !important;
+  padding: 10px !important;
+  min-height: 48px !important;
+  cursor: pointer !important;
+}

@@ -105,7 +105,7 @@ const BoardEngine = {
     this._bindBenchPanelOnce();
     // Resize
     if (window.ResizeObserver) {
-      new ResizeObserver(() => { this.applyCamera(); this.renderTokens(); this.renderDrawings(); }).observe(c);
+      new ResizeObserver(() => { this._sizeStageToPitch && this._sizeStageToPitch(); this.applyCamera(); this.renderTokens(); this.renderDrawings(); }).observe(c);
       // Freeze guard: clear stuck multi-touch state that leaves zoom indicator active without movement
       if (!this._freezeGuard) {
         this._freezeGuard = setInterval(() => {
@@ -229,17 +229,50 @@ const BoardEngine = {
     this.updateZoomIndicator();
   },
 
-  /** Вписати поле в доступну область main */
+  /** Вписати поле в контейнер зі збереженням пропорцій 68:105 (як viewBox).
+   *  Критично: stage має ті самі пропорції, що й SVG, інакше % фішок ≠ розмітка. */
   fitField() {
     this.camera = { x: 0, y: 0, zoom: 1 };
+    this._sizeStageToPitch();
     this.applyCamera();
     requestAnimationFrame(() => {
+      this._sizeStageToPitch();
       this.applyCamera();
       this.renderTokens();
       this.renderDrawings && this.renderDrawings();
     });
     this.renderTokens();
     this.renderDrawings();
+  },
+
+  _sizeStageToPitch() {
+    try {
+      const c = document.getElementById('fieldContainer');
+      const stage = document.getElementById('fieldStage');
+      if (!c || !stage) return;
+      const cw = c.clientWidth || 1;
+      const ch = c.clientHeight || 1;
+      const AR = 68 / 105; // width/height of pitch
+      let w, h;
+      if (cw / ch > AR) {
+        // container wider than pitch → height-limited
+        h = ch;
+        w = h * AR;
+      } else {
+        w = cw;
+        h = w / AR;
+      }
+      stage.style.position = 'absolute';
+      stage.style.width = Math.round(w) + 'px';
+      stage.style.height = Math.round(h) + 'px';
+      stage.style.left = Math.round((cw - w) / 2) + 'px';
+      stage.style.top = Math.round((ch - h) / 2) + 'px';
+      stage.style.right = 'auto';
+      stage.style.bottom = 'auto';
+      stage.style.inset = 'auto';
+      stage.style.maxWidth = '100%';
+      stage.style.maxHeight = '100%';
+    } catch (_) {}
   },
   zoomFit() { this.fitField(); },
   resetCamera() { this.fitField(); },
@@ -1742,6 +1775,18 @@ const BoardEngine = {
   },
   renderTokens() {
     // migrateLeftEdgeToBench — лише при loadBoard, не на кожен кадр (ламає лівий фланг)
+    try {
+      const objs = (Store.get().activeBoard && Store.get().activeBoard.objects) || [];
+      objs.forEach(o => {
+        if (!o || o.onBench) return;
+        if (o.type === 'player' || o.type === 'opponent' || o.type === 'ball') {
+          if (o.x == null || isNaN(o.x)) o.x = 0.5;
+          if (o.y == null || isNaN(o.y)) o.y = 0.5;
+          o.x = Math.max(0.02, Math.min(0.98, Number(o.x)));
+          o.y = Math.max(0.02, Math.min(0.98, Number(o.y)));
+        }
+      });
+    } catch (_) {}
     this.renderBenchPanel();
     const layer = document.getElementById('playersLayer');
     if (!layer) return;

@@ -461,7 +461,13 @@ const App = {
         if (typeof AuthManager !== 'undefined') {
           const role = AuthManager.roleLabel();
           let name = AuthManager.displayName() || '';
-          name = String(name).replace(/[\u200B-\u200D\uFEFF\u2060]/g,'').replace(/[\uFE00-\uFE0F]/g,'').replace(/[\u2600-\u27BF]/g,'').replace(/\s+/g,' ').trim();
+          name = String(name)
+            .replace(/[\u200B-\u200D\uFEFF\u2060\u00AD]/g,'')
+            .replace(/[\uFE00-\uFE0F]/g,'')
+            .replace(/[\u2600-\u27BF]/g,'')
+            .replace(/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g,'')
+            .replace(/[\u2600-\u26FF]/g,'')
+            .replace(/\s+/g,' ').trim();
           badge.innerHTML = '<span class="auth-role">' + sanitize(role) + '</span>: ' + sanitize(name);
           badge.title = AuthManager.user ? ('Telegram ID: ' + AuthManager.user.id) : 'Локальний режим';
         } else {
@@ -1512,11 +1518,12 @@ const App = {
       if (t.dataset.tool) {
         const ab = Store.get().activeBoard;
         ab.tool = t.dataset.tool;
-        if (ab.toolsTrayOpen && window.innerWidth < 900) {
-          ab.toolsTrayOpen = false;
-          document.body.classList.remove('tools-tray-open');
-        }
+        // Лоток НЕ закриваємо автоматично — тренер сам згортає ⊕
+        // (раніше на <900px лоток миттєво закривався → здавалося, що «не розгортається»)
         BoardEngine.renderToolbar();
+        try {
+          document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
+        } catch (_) {}
         try { TelegramManager.haptic && TelegramManager.haptic('selection'); } catch (_) {}
         return;
       }
@@ -1651,6 +1658,42 @@ const App = {
         } catch (_) {}
         return;
       }
+      
+      if (action === 'upload-club-logo' || action === 'upload-coach-photo') {
+        e.preventDefault(); e.stopPropagation();
+        if (typeof AuthManager !== 'undefined' && AuthManager.isCoach && !AuthManager.isCoach()) {
+          Toast.show('Лише тренер', 'warn'); return;
+        }
+        const isCoach = action === 'upload-coach-photo';
+        const input = document.getElementById(isCoach ? 'settingsCoachPhotoInput' : 'settingsLogoInput')
+          || (() => {
+            const i = document.createElement('input');
+            i.type = 'file'; i.accept = 'image/*'; i.hidden = true;
+            document.body.appendChild(i);
+            return i;
+          })();
+        input.onchange = () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          if (file.size > 2.5e6) { Toast.show('Максимум 2.5 МБ', 'warn'); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const data = reader.result;
+            const s = Store.get().settings;
+            if (isCoach) s.coachPhoto = data;
+            else s.logoData = data;
+            try { StorageManager.save(); } catch (_) {}
+            try { App.applyBranding && App.applyBranding(); } catch (_) {}
+            try { App.renderCurrent && App.renderCurrent(); } catch (_) {}
+            Toast.show(isCoach ? 'Фото тренера оновлено' : 'Логотип оновлено', 'ok');
+          };
+          reader.readAsDataURL(file);
+          input.value = '';
+        };
+        input.click();
+        return;
+      }
+
       if (action === 'open-fifa-card' || action === 'open-player-card') {
         e.preventDefault(); e.stopPropagation();
         const pid = (t.dataset && t.dataset.playerId) || t.getAttribute('data-player-id');

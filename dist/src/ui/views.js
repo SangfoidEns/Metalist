@@ -59,6 +59,7 @@ const Views = {
       .replace(/[\u200B-\u200D\uFEFF\u2060\u00AD]/g, '')
       .replace(/[\uFE00-\uFE0F]/g, '')
       .replace(/[\u2600-\u27BF]/g, '')
+      .replace(/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
   },
@@ -169,7 +170,7 @@ const Views = {
 
     return `
       <div class="club-profile">
-        <div class="app-build-tag" aria-hidden="true">build 2026.10.24-c · full</div>
+        <div class="app-build-tag" aria-hidden="true">build 2026.10.24-h · full</div>
 
         <!-- Telegram-style profile card (coach/player) -->
         ${(() => {
@@ -866,11 +867,16 @@ const Views = {
       </div>`;
     }).join('');
 
+    const compareBlock = (typeof AuthManager !== 'undefined' && AuthManager.isCoach && AuthManager.isCoach())
+      ? this._compareBlock(list[0] || null, (typeof window !== 'undefined' && window.__coachCompareId) || '')
+      : '';
+
     return `
       <div class="st">Склад
         <button class="btn btn-p btn-sm" data-action="new-player">+ Гравець</button>
       </div>
-      <p class="note-sm">Основа зверху, резерв знизу. Утримуйте рядок — меню як у Telegram.</p>
+      <p class="note-sm">Тап по гравцю — повна картка. Заголовки таблиці — сортування. Утримуйте рядок — меню Telegram.</p>
+      ${compareBlock}
       <div class="pl-table glass">
         <div class="pl-head">
           ${th('number', '№')}
@@ -1136,82 +1142,85 @@ const Views = {
       try { linksStr = sanitize(JSON.stringify(rbac.playerLinks || {})); } catch (_) { linksStr = '{}'; }
       const pri = s.primary || '#1a3a5c';
       const acc = s.accent || '#c8a84b';
+      const logoHtml = s.logoData
+        ? ('<img src="' + s.logoData + '" style="width:100%;height:100%;object-fit:cover"/>')
+        : sanitize(s.clubShort || 'МШ');
+      const coachHtml = s.coachPhoto
+        ? ('<img src="' + s.coachPhoto + '" style="width:100%;height:100%;object-fit:cover"/>')
+        : 'АС';
       return `
       <div class="st">Налаштування</div>
+
+      <div class="card glass">
+        <div class="ct">Фото та логотип</div>
+        <div class="settings-photo-row" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center">
+          <div style="text-align:center">
+            <div class="logo-ph" style="width:72px;height:72px;border-radius:50%;margin:0 auto 8px;overflow:hidden;background:#1a3a5c;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff">${logoHtml}</div>
+            <button type="button" class="btn btn-s" data-action="upload-club-logo">📷 Логотип клубу</button>
+          </div>
+          <div style="text-align:center">
+            <div class="logo-ph" style="width:72px;height:72px;border-radius:50%;margin:0 auto 8px;overflow:hidden;background:linear-gradient(145deg,#f1c40f,#e67e22);display:flex;align-items:center;justify-content:center;font-weight:800;color:#1a1a1a">${coachHtml}</div>
+            <button type="button" class="btn btn-s" data-action="upload-coach-photo">📷 Фото тренера</button>
+          </div>
+        </div>
+        <p class="note-sm" style="margin-top:8px">Фото тренера — на головній картці. Логотип — в емблемі шапки.</p>
+        <input type="file" id="settingsLogoInput" accept="image/*" hidden/>
+        <input type="file" id="settingsCoachPhotoInput" accept="image/*" hidden/>
+      </div>
+
       <div class="card glass coach-tools-settings">
         <div class="ct">Telegram · інструменти тренера</div>
-        <p class="note-sm">Синхронізація Cloud Storage, шеринг плану та складу в чат команди.</p>
-        <div class="coach-tools-grid">
+        <p class="note-sm">Синхронізація Cloud Storage та шеринг у чат команди.</p>
+        <div class="coach-tools-grid" style="display:flex;flex-wrap:wrap;gap:8px">
           <button type="button" class="btn btn-s coach-tool" data-coach-tool="sync-push">☁ Зберегти в Cloud</button>
           <button type="button" class="btn btn-s coach-tool" data-coach-tool="sync-pull">☁ Завантажити з Cloud</button>
           <button type="button" class="btn btn-s coach-tool" data-coach-tool="share-training">📤 План у чат</button>
           <button type="button" class="btn btn-s coach-tool" data-coach-tool="share-roster">👥 Склад у чат</button>
-          <button type="button" class="btn btn-s coach-tool" data-coach-tool="export">📦 Тема інтерфейсу</label>
-          <div class="theme-toggle-row">
-            <button type="button" class="btn btn-s" data-action="toggle-theme" data-theme-set="dark">🌙 Темна</button>
-            <button type="button" class="btn btn-s" data-action="toggle-theme" data-theme-set="light">☀️ Світла</button>
-          </div>
-        </div>
-        <div class="fgr"><label>Експорт JSON</button>
         </div>
         <p class="note-sm" id="tgStatusLine" style="margin-top:8px"></p>
       </div>
 
-      <div class="card"><div class="ct">Клуб</div>
-        <div class="fg">
-          <div class="fgr"><label>Назва</label><input id="setName" value="${sanitize(s.clubName || 'МЕТАЛІСТ ШТУТГАРТ')}"></div>
-          <div class="fgr"><label>Скорочення</label><input id="setShort" value="${sanitize(s.clubShort || 'МШ')}" maxlength="4"></div>
-          <div class="fgr"><label>Основний колір</label><input type="color" id="setPri" value="${pri}"></div>
-          <div class="fgr"><label>Акцент</label><input type="color" id="setAcc" value="${acc}"></div>
-          <div class="fgr"><label>Тривалість за замовч. (хв)</label><input type="number" id="setDur" value="${s.defaultDuration != null ? s.defaultDuration : 90}"></div>
-          <div class="fgr"><label>Інтенсивність за замовч.</label><input type="number" id="setInt" value="${s.defaultIntensity != null ? s.defaultIntensity : 6}" min="1" max="10"></div>
-          <div class="fgr full"><label>Логотип (завантажити зображення)</label>
-            <input type="file" id="setLogo" accept="image/*">
-            ${s.logoData ? '<p class="note-sm">Логотип завантажено</p>' : '<p class="note-sm">Placeholder: CLUB LOGO</p>'}
-          </div>
-          <div class="fgr"><label><input type="checkbox" id="setAuto" ${s.autosave !== false ? 'checked' : ''}> Автозбереження</label></div>
-          <div class="fgr"><label><input type="checkbox" id="setSound" ${s.sound !== false ? 'checked' : ''}> Звук таймера</label></div>
-        </div>
-        <div class="fa"><button type="button" class="btn btn-p" data-action="save-settings">Зберегти</button></div>
-      </div>
-      <div class="card"><div class="ct">Соцмережі (для гостей)</div>
-        <div class="fg">
-          <div class="fgr full"><label>Telegram-канал</label><input id="setTgChannel" value="${sanitize((s.social&&s.social.telegram)||s.telegramChannel||'')}" placeholder="https://t.me/..."></div>
-          <div class="fgr full"><label>Instagram</label><input id="setIg" value="${sanitize((s.social&&s.social.instagram)||s.instagram||'')}" placeholder="https://instagram.com/..."></div>
-          <div class="fgr full"><label>YouTube</label><input id="setYt" value="${sanitize((s.social&&s.social.youtube)||s.youtube||'')}" placeholder="https://youtube.com/..."></div>
-          <div class="fgr full"><label>Медіа для гостей (URL через новий рядок)</label>
-            <textarea id="setGuestMedia" rows="3" placeholder="https://...jpg&#10;https://...mp4">${sanitize((Array.isArray(s.guestMedia)?s.guestMedia:(s.social&&s.social.media)||[]).map(x=>typeof x==='string'?x:(x.url||'')).filter(Boolean).join('\n'))}</textarea>
+      <div class="card glass">
+        <div class="ct">Клуб</div>
+        <div class="fgr"><label>Назва клубу</label><input id="setClubName" value="${sanitize(s.clubName || '')}"/></div>
+        <div class="fgr"><label>Скорочення</label><input id="setClubShort" value="${sanitize(s.clubShort || '')}"/></div>
+        <div class="fgr"><label>Колір основний</label><input id="setPrimary" type="color" value="${pri}"/></div>
+        <div class="fgr"><label>Колір акцент</label><input id="setAccent" type="color" value="${acc}"/></div>
+        <div class="fgr"><label>Тема</label>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn btn-s" data-action="toggle-theme" data-theme-set="dark">🌙 Темна</button>
+            <button type="button" class="btn btn-s" data-action="toggle-theme" data-theme-set="light">☀️ Світла</button>
           </div>
         </div>
-        <p class="note-sm">Зберігається разом із «Зберегти» у блоці Клуб або кнопкою нижче.</p>
-        <button type="button" class="btn btn-s" data-action="save-settings">Зберегти посилання</button>
+        <button type="button" class="btn btn-p" data-action="save-settings" style="margin-top:10px">Зберегти</button>
       </div>
-      <div class="card"><div class="ct">Дані</div>
-        <div class="fa" style="flex-direction:column;align-items:stretch;gap:10px">
-          <div class="data-io glass-io">
-            <button type="button" class="btn btn-p data-io-btn coach-only" id="btnExportJson" data-io="export" data-action="export">Експорт JSON</button>
-            <button type="button" class="btn btn-s data-io-btn" id="btnImportJson" data-io="import" data-action="import-trigger">Імпорт JSON</button>
-          </div>
-          <p class="note-sm">На iPhone: «Файли» / iCloud Drive. Перед імпортом створюється резервна копія.</p>
-          <button type="button" class="btn btn-d" data-action="reset-all">Скинути все</button>
+
+      <div class="card glass data-io">
+        <div class="ct">Дані</div>
+        <div class="data-io glass-io" style="display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="btn btn-p data-io-btn coach-only" data-io="export" data-action="export">Експорт JSON</button>
+          <button type="button" class="btn btn-s data-io-btn" data-io="import" data-action="import-trigger">Імпорт JSON</button>
         </div>
+        <p class="note-sm">Імпорт доступний усім. Експорт — лише тренеру.</p>
       </div>
-      <div class="card"><div class="ct">Ролі та Telegram (RBAC)</div>
-        <p class="note-sm" style="margin-bottom:10px">Тренер завжди @Serdiuk_Artem. Гравець @Artem_Serdyuk визначається з анкети (Telegram). Імпорт JSON доступний усім.</p>
-        <div class="fgr full"><label>Тренері (через кому)</label>
-          <input type="text" id="setCoaches" value="${coachesStr}" placeholder="Serdiuk_Artem">
+
+      <div class="card glass">
+        <div class="ct">Ролі (RBAC)</div>
+        <div class="fgr"><label>Тренерські username (через кому)</label>
+          <input id="setCoaches" value="${coachesStr}"/>
         </div>
-        <div class="fgr full"><label>Прив'язка гравців (JSON)</label>
+        <div class="fgr full"><label>Привʼязка гравців (JSON)</label>
           <textarea id="setPlayerLinks" rows="3" placeholder='{"123":"p01"}'>${linksStr}</textarea>
         </div>
         <p class="note-sm">Поточний користувач: <strong id="rbacMe">—</strong></p>
         <button type="button" class="btn btn-s" data-action="save-rbac">Зберегти ролі</button>
       </div>
+
       <div class="card"><div class="ct">Про застосунок</div>
         <p style="font-size:12px;color:var(--muted);line-height:1.6">
           Тренерська платформа · МЕТАЛІСТ ШТУТГАРТ<br>
-          Schema v${typeof SCHEMA_VERSION !== 'undefined' ? SCHEMA_VERSION : 2} · localStorage · Telegram Cloud<br>
-          Production-quality prototype
+          Schema v${typeof SCHEMA_VERSION !== 'undefined' ? SCHEMA_VERSION : 2} · build 2026.10.24-h<br>
+          localStorage · Telegram Cloud
         </p>
       </div>`;
     } catch (e) {
@@ -1225,7 +1234,6 @@ const Views = {
             <button type="button" class="btn btn-p data-io-btn coach-only" data-io="export" data-action="export">Експорт JSON</button>
             <button type="button" class="btn btn-s data-io-btn" data-io="import" data-action="import-trigger">Імпорт JSON</button>
           </div>
-          <button type="button" class="btn btn-s" data-action="save-settings" style="margin-top:8px">Спробувати зберегти</button>
         </div>`;
     }
   },
