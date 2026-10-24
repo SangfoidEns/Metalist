@@ -3998,8 +3998,9 @@ body.role-guest .mni[data-view="board"],
 body.role-guest .mni[data-view="analytics"],
 body.role-guest .mni[data-view="diary"],
 body.role-guest .mni[data-view="settings"] { display: none !important; }
+/* Гравець МАЄ доступ до дошки — не ховати */
 body.role-player .nav[data-view="board"],
-body.role-player .mni[data-view="board"] { display: none !important; }
+body.role-player .mni[data-view="board"] { display: flex !important; }
 
 /* ═══ FIFA + Glass player card ═══ */
 .fifa-card {
@@ -6236,9 +6237,11 @@ body.board-active .mn {
 }
 
 /* Player / guest home — same stable profile, no coach actions overflow */
-body.role-player .cp-pills .cp-pill-primary,
 body.role-guest .cp-pills .cp-pill-primary {
   display: none !important;
+}
+body.role-player .cp-pills .cp-pill-primary {
+  display: inline-flex !important;
 }
 body.role-player .coach-tools-card,
 body.role-guest .coach-tools-card {
@@ -6259,3 +6262,69 @@ body.role-guest .coach-tools-card {
     transition: none !important;
   }
 }
+
+/* ROLE GATING */
+body.role-player [data-edit-player],
+body.role-player [data-del-player],
+body.role-player [data-edit-training],
+body.role-player [data-del-training],
+body.role-player [data-dup-training],
+body.role-player [data-attendance-training],
+body.role-player [data-action="new-training"],
+body.role-player [data-action="new-player"],
+body.role-guest [data-edit-player],
+body.role-guest [data-del-player],
+body.role-guest [data-edit-training],
+body.role-guest [data-del-training],
+body.role-guest [data-action="new-training"],
+body.role-guest [data-action="new-player"] {
+  display: none !important;
+}
+
+.player-quick { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.player-tr-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 0.5px solid rgba(255,255,255,0.06);
+  font-size: 13px;
+}
+.ptr-badge { width: 22px; text-align: center; }
+.ptr-name { flex: 1; font-weight: 600; }
+.ptr-meta { color: var(--muted); font-size: 11px; }
+.att-chart { display: block; width: 100%; max-width: 320px; margin: 6px 0; }
+.chart-label { font-size: 11px; color: var(--muted); }
+
+.guest-welcome { padding-bottom: 24px; }
+.guest-hero-card { text-align: center; padding: 24px 16px; margin-bottom: 14px; border-radius: 20px; }
+.guest-logo {
+  width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 22px; color: #fff;
+  background: linear-gradient(145deg, #1a3a5c, #0d1f33);
+  border: 2px solid rgba(232,197,71,0.4);
+}
+.guest-h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.02em; }
+.guest-tag { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.guest-social {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px;
+}
+.guest-soc-btn {
+  flex: 1 1 30%; min-width: 100px; text-align: center;
+  padding: 12px 10px; border-radius: 14px; font-weight: 700; font-size: 13px;
+  text-decoration: none; color: var(--text);
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid rgba(255,255,255,0.12);
+}
+.guest-media-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.guest-media-item {
+  border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.25);
+}
+.guest-media-item img, .guest-media-item video {
+  width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover;
+}
+.gm-cap { font-size: 11px; padding: 6px 8px; color: var(--muted); }
+
+body.role-player .player-quick { display: flex !important; }
+body.role-player .player-stats-card { display: block !important; }
+body.role-player .fifa-card { display: block !important; }

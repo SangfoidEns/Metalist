@@ -59,7 +59,7 @@ const Views = {
 
   _attendanceGifts(attPct) {
     const n = Math.max(0, Math.min(12, Math.round((Number(attPct) || 0) / 100 * 12)));
-    const pool = ['🎁','⭐','🏆','⚽','🔥','💎','👑','🎯','💪','🛡️','✨','🏅'];
+    const pool = ['★','●','◆','✦','★','●','◆','✦','★','●','◆','✦'];
     return pool.slice(0, Math.max(3, n)); // мінімум 3 для естетики профілю
   },
 
@@ -458,6 +458,62 @@ const Views = {
   },
 
 
+
+  _myStatsCharts(me, stats) {
+    if (!me) return '';
+    const s = Store.get();
+    const past = (s.trainings || []).filter(t => {
+      if (t.status === 'cancelled') return false;
+      if (t.status === 'done') return true;
+      try { return t.date && t.date < today(); } catch (_) { return false; }
+    }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const last12 = past.slice(-12);
+    const attSeries = last12.map(t => {
+      const a = t.attendance && t.attendance[me.id];
+      if (!a) return 0;
+      return a.present === false ? 0 : 1;
+    });
+    const rpeSeries = last12.map(t => {
+      const a = t.attendance && t.attendance[me.id];
+      return a && a.rpe != null ? Number(a.rpe) : null;
+    });
+    const W = 280, H = 72, pad = 4;
+    const n = Math.max(1, attSeries.length);
+    const barW = (W - pad * 2) / n;
+    const bars = attSeries.map((v, i) => {
+      const x = pad + i * barW;
+      const h = v ? (H - pad * 2) * 0.85 : 4;
+      const y = H - pad - h;
+      const fill = v ? '#2ecc71' : '#e74c3c55';
+      return `<rect x="${x + 1}" y="${y}" width="${Math.max(2, barW - 2)}" height="${h}" rx="2" fill="${fill}"/>`;
+    }).join('');
+    const rpePts = rpeSeries.map((v, i) => {
+      if (v == null || isNaN(v)) return null;
+      const x = pad + i * barW + barW / 2;
+      const y = H - pad - ((Math.min(10, Math.max(0, v)) / 10) * (H - pad * 2));
+      return `${x},${y}`;
+    }).filter(Boolean);
+    const poly = rpePts.length > 1
+      ? `<polyline fill="none" stroke="#e8c547" stroke-width="2" points="${rpePts.join(' ')}"/>`
+      : '';
+    const presentCnt = attSeries.filter(Boolean).length;
+    const totalCnt = attSeries.length;
+    const attPct = totalCnt ? Math.round(presentCnt / totalCnt * 100) : (stats && stats.attPct) || 0;
+
+    return `
+      <div class="card glass player-stats-card">
+        <div class="ct">Моя статистика · тренування</div>
+        <div class="dg" style="margin-bottom:10px">
+          <div class="sc"><div class="lb">Відвідуваність</div><div class="vl">${attPct}%</div><div class="sb">${presentCnt}/${totalCnt || '—'} останніх</div></div>
+          <div class="sc"><div class="lb">Сер. RPE</div><div class="vl">${stats && stats.avgRpe != null ? stats.avgRpe : '—'}</div></div>
+          <div class="sc"><div class="lb">Load 28д</div><div class="vl">${stats && stats.load28 != null ? stats.load28 : '—'}</div></div>
+        </div>
+        <div class="chart-label">Відвідування (зелене = був, червоне = відсутній)</div>
+        <svg class="att-chart" viewBox="0 0 ${W} ${H}" width="100%" height="72" aria-label="Графік відвідування">${bars}${poly}</svg>
+        <div class="chart-label" style="margin-top:6px">Жовта лінія — RPE на тренуваннях</div>
+      </div>`;
+  },
+
   _noPlayerLink() {
     return '<div class="card"><div class="ct">Профіль не прив\u2019язано</div>'
       + '<p class="note-sm">Попросіть тренера вказати ваш Telegram-нік в анкеті гравця.</p></div>';
@@ -482,88 +538,118 @@ const Views = {
     const s = Store.get();
     let me = null;
     try { me = AuthManager.getLinkedPlayer(); } catch (_) { me = null; }
-    // якщо роль player, але link втрачено — спробувати знайти ще раз
     if (!me && AuthManager.user) {
-      try {
-        AuthManager._resolveRole();
-        me = AuthManager.getLinkedPlayer();
-      } catch (_) {}
+      try { AuthManager._resolveRole(); me = AuthManager.getLinkedPlayer(); } catch (_) {}
     }
     const stats = me ? this._playerStats(me.id) : { attPct: 0, avgRpe: 0, load28: 0 };
     const next = s.trainings.filter(t => t.status === 'planned' && t.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     const nextMatch = s.matches.filter(m => m.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
-    const teamAvail = s.players.filter(p => p.status === 'available' || p.status === 'healthy' || !p.status).length;
-    const recentAtt = (s.trainings || []).filter(t => t.attendance && me && t.attendance[me.id])
-      .sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 6);
+    const pastTr = (s.trainings || []).filter(t => t.status === 'done' || (t.date && t.date < today() && t.status !== 'cancelled'))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 8);
+    const schemes = (s.boards || s.savedBoards || []).slice().sort((a, b) => (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '')).slice(0, 6);
 
     return `
-      <div class="st">Команда · МЕТАЛІСТ ШТУТГАРТ
-        <button type="button" class="btn btn-s btn-sm" data-io="import" data-action="import-trigger" title="Оновити дані від тренера">Імпорт JSON</button>
+      <div class="st">Мій кабінет · МЕТАЛІСТ ШТУТГАРТ
+        <button type="button" class="btn btn-s btn-sm" data-io="import" data-action="import-trigger">Імпорт JSON</button>
       </div>
       ${me ? this._fifaCard(me, stats) : this._noPlayerLink()}
+
+      <div class="cp-pills player-quick">
+        <button type="button" class="cp-pill cp-pill-primary" data-action="open-default-board">⚽ Дошка</button>
+        <button type="button" class="cp-pill" data-view="schemes">📋 Схеми</button>
+        <button type="button" class="cp-pill" data-view="trainings">📅 Тренування</button>
+        <button type="button" class="cp-pill" data-view="players">👥 Склад</button>
+        <button type="button" class="cp-pill" data-view="analytics">📊 Аналітика</button>
+      </div>
+
       ${me ? this._myStatsCharts(me, stats) : ''}
       ${me ? this._compareBlock(me, (typeof window !== 'undefined' && window.__playerCompareId) || '') : ''}
-      <div class="dg player-team-stats">
+
+      <div class="dg">
         <div class="sc"><div class="lb">Наступне тренування</div><div class="vl" style="font-size:13px">${next ? sanitize(next.name) : '—'}</div><div class="sb">${next ? next.date + ' ' + (next.time || '') : ''}</div></div>
         <div class="sc"><div class="lb">Наступний матч</div><div class="vl" style="font-size:13px">${nextMatch ? 'vs ' + sanitize(nextMatch.opponent) : '—'}</div><div class="sb">${nextMatch ? nextMatch.date : ''}</div></div>
-        <div class="sc"><div class="lb">У строю</div><div class="vl">${teamAvail}</div><div class="sb">з ${s.players.length}</div></div>
       </div>
-      <div class="card"><div class="ct">Мої останні відвідування</div>
-        ${recentAtt.length ? recentAtt.map(t => {
-          const a = t.attendance[me.id];
-          const ok = a && a.present;
-          return `<div class="li"><div class="inf"><div class="ti">${sanitize(t.name)}</div>
-            <div class="me">${t.date} · ${ok ? '✓ був' : '✗ відсутній'}${ok && a.intensity != null ? ' · RPE ' + a.intensity : ''}</div></div>
-            <span class="badge ${ok ? 'b-ok' : 'b-d'}">${ok ? 'OK' : '—'}</span></div>`;
-        }).join('') : '<div class="es">Ще немає відміток відвідування</div>'}
+
+      <div class="card glass">
+        <div class="ct">Останні тренування (лише перегляд)</div>
+        <div class="player-tr-list">${pastTr.length ? pastTr.map(t => {
+          const a = me && t.attendance && t.attendance[me.id];
+          const present = a ? (a.present !== false) : null;
+          const badge = present === true ? '✅' : (present === false ? '❌' : '—');
+          const rpe = a && a.rpe != null ? ('RPE ' + a.rpe) : '';
+          return `<div class="player-tr-row">
+            <span class="ptr-badge">${badge}</span>
+            <span class="ptr-name">${sanitize(t.name || 'Тренування')}</span>
+            <span class="ptr-meta">${sanitize(t.date || '')} ${rpe}</span>
+          </div>`;
+        }).join('') : '<p class="note-sm">Немає даних відвідування. Імпортуйте JSON від тренера.</p>'}</div>
       </div>
-      <div class="card"><div class="ct">Склад команди</div>
-        <div class="team-mini-list">${s.players.slice().sort((a,b)=>(a.number||0)-(b.number||0)).map(p => {
-          const st = p.status || 'available';
-          const bc = (st === 'injured') ? 'inj' : ((st === 'rehab' || st === 'recovery') ? 'reh' : '');
-          const meCls = me && p.id === me.id ? ' me' : '';
-          return `<div class="team-mini${meCls} ${bc}"><span class="tm-num">#${p.number||''}</span>
-            <span class="tm-name">${sanitize(p.lastName||'')} ${sanitize((p.firstName||'')[0]||'')}</span>
-            <span class="tm-pos">${sanitize(p.position||'')}</span></div>`;
-        }).join('')}</div>
+
+      <div class="card glass">
+        <div class="ct">Схеми · повний контроль дошки</div>
+        <p class="note-sm">Можна відкривати схеми, малювати, зберігати власні. Редагування складу/тренувань — лише у тренера.</p>
+        <div class="player-scheme-list">${schemes.length ? schemes.map(b =>
+          `<button type="button" class="btn btn-s btn-sm" data-load-board="${b.id}" style="margin:4px">${sanitize(b.name || 'Схема')}</button>`
+        ).join('') : '<span class="note-sm">Поки немає збережених схем</span>'}
+        <button type="button" class="btn btn-p btn-sm" data-action="open-default-board" style="margin:4px">Нова на дошці</button>
+        </div>
       </div>`;
   },
 
   _guestHome() {
     const s = Store.get();
-    const avail = s.players.filter(p => p.status === 'available' || p.status === 'healthy' || !p.status).length;
+    const set = s.settings || {};
+    const social = set.social || {};
+    const tg = social.telegram || social.channel || set.telegramChannel || 'https://t.me/';
+    const ig = social.instagram || set.instagram || 'https://instagram.com/';
+    const yt = social.youtube || set.youtube || 'https://youtube.com/';
+    const media = Array.isArray(set.guestMedia) ? set.guestMedia : (Array.isArray(s.guestMedia) ? s.guestMedia : []);
     const next = s.trainings.filter(t => t.status === 'planned' && t.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     const nextMatch = s.matches.filter(m => m.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
+
     return `
-      <div class="st">МЕТАЛІСТ ШТУТГАРТ
-        <button type="button" class="btn btn-s btn-sm" data-io="import" data-action="import-trigger">Імпорт JSON</button>
-      </div>
-      <div class="card glass guest-hero">
-        <div class="guest-title">Офіційний клубний простір</div>
-        <p class="note-sm">Ви увійшли як <strong>гість</strong>. Повна статистика доступна гравцям складу та тренеру.</p>
-        <button type="button" class="btn btn-p" data-io="import" data-action="import-trigger" style="width:100%;min-height:48px;margin-top:10px">📥 Імпорт JSON від тренера</button>
-        <p class="note-sm" style="margin-top:8px">Тренер експортує файл → ви імпортуєте і бачите актуальний склад/розклад.</p>
-      </div>
-      <div class="dg">
-        <div class="sc"><div class="lb">Гравців у складі</div><div class="vl">${s.players.length}</div></div>
-        <div class="sc"><div class="lb">У строю</div><div class="vl">${avail}</div></div>
-        <div class="sc"><div class="lb">Наступне тренування</div><div class="vl" style="font-size:13px">${next ? sanitize(next.name) : '—'}</div><div class="sb">${next ? next.date : ''}</div></div>
-        <div class="sc"><div class="lb">Наступний матч</div><div class="vl" style="font-size:13px">${nextMatch ? 'vs ' + sanitize(nextMatch.opponent) : '—'}</div><div class="sb">${nextMatch ? nextMatch.date : ''}</div></div>
-      </div>
-      <div class="card"><div class="ct">Склад (скорочено)</div>
-        <div class="team-mini-list">${s.players.slice().sort((a,b)=>(a.number||0)-(b.number||0)).map(p =>
-          `<div class="team-mini"><span class="tm-num">#${p.number||''}</span>
-            <span class="tm-name">${sanitize(p.lastName||'')}</span>
-            <span class="tm-pos">${sanitize(p.position||'')}</span></div>`
-        ).join('')}</div>
+      <div class="guest-welcome">
+        <div class="guest-hero-card glass">
+          <div class="guest-logo">МШ</div>
+          <h1 class="guest-h1">МЕТАЛІСТ ШТУТГАРТ</h1>
+          <p class="guest-tag">Офіційний простір клубу</p>
+          <p class="note-sm">Ви увійшли як <strong>гість</strong>. Повний функціонал — для гравців складу та тренера.</p>
+          <button type="button" class="btn btn-p" data-io="import" data-action="import-trigger" style="width:100%;min-height:48px;margin-top:12px">📥 Імпорт JSON від тренера</button>
+        </div>
+
+        <div class="guest-social">
+          <a class="guest-soc-btn" href="${sanitize(tg)}" target="_blank" rel="noopener">✈️ Telegram</a>
+          <a class="guest-soc-btn" href="${sanitize(ig)}" target="_blank" rel="noopener">📸 Instagram</a>
+          <a class="guest-soc-btn" href="${sanitize(yt)}" target="_blank" rel="noopener">▶ YouTube</a>
+        </div>
+
+        <div class="dg">
+          <div class="sc"><div class="lb">Наступне тренування</div><div class="vl" style="font-size:13px">${next ? sanitize(next.name) : '—'}</div><div class="sb">${next ? next.date : ''}</div></div>
+          <div class="sc"><div class="lb">Наступний матч</div><div class="vl" style="font-size:13px">${nextMatch ? 'vs ' + sanitize(nextMatch.opponent) : '—'}</div><div class="sb">${nextMatch ? nextMatch.date : ''}</div></div>
+          <div class="sc"><div class="lb">Гравців у складі</div><div class="vl">${(s.players||[]).length}</div></div>
+        </div>
+
+        <div class="card glass">
+          <div class="ct">Медіа клубу</div>
+          ${media.length ? `<div class="guest-media-grid">${media.map(m => {
+            const url = typeof m === 'string' ? m : (m.url || m.src || '');
+            const title = typeof m === 'object' ? (m.title || '') : '';
+            if (!url) return '';
+            if (/\\.(mp4|webm|mov)(\\?|$)/i.test(url) || (m && m.type === 'video')) {
+              return `<div class="guest-media-item"><video src="${sanitize(url)}" controls playsinline></video>${title ? `<div class="gm-cap">${sanitize(title)}</div>` : ''}</div>`;
+            }
+            return `<div class="guest-media-item"><img src="${sanitize(url)}" alt="" loading="lazy"/>${title ? `<div class="gm-cap">${sanitize(title)}</div>` : ''}</div>`;
+          }).join('')}</div>` : '<p class="note-sm">Тренер ще не додав медіа. Після імпорту JSON тут з’являться матеріали.</p>'}
+        </div>
       </div>`;
   },
 
   trainings() {
     const s = Store.get();
     const list = s.trainings.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const canEdit = typeof AuthManager !== 'undefined' && AuthManager.isCoach && AuthManager.isCoach();
     return `
-      <div class="st">Тренування <button class="btn btn-p btn-sm" data-action="new-training">+ Нове</button></div>
+      <div class="st">Тренування ${canEdit ? '<button class="btn btn-p btn-sm" data-action="new-training">+ Нове</button>' : '<span class="note-sm">лише перегляд</span>'}</div>
       <div class="fb">
         <input type="search" id="trSearch" placeholder="Пошук..." data-filter="trainings">
         <select id="trStatus" data-filter="trainings">
@@ -956,6 +1042,18 @@ const Views = {
           <div class="fgr"><label><input type="checkbox" id="setSound" ${s.sound !== false ? 'checked' : ''}> Звук таймера</label></div>
         </div>
         <div class="fa"><button type="button" class="btn btn-p" data-action="save-settings">Зберегти</button></div>
+      </div>
+      <div class="card"><div class="ct">Соцмережі (для гостей)</div>
+        <div class="fg">
+          <div class="fgr full"><label>Telegram-канал</label><input id="setTgChannel" value="${sanitize((s.social&&s.social.telegram)||s.telegramChannel||'')}" placeholder="https://t.me/..."></div>
+          <div class="fgr full"><label>Instagram</label><input id="setIg" value="${sanitize((s.social&&s.social.instagram)||s.instagram||'')}" placeholder="https://instagram.com/..."></div>
+          <div class="fgr full"><label>YouTube</label><input id="setYt" value="${sanitize((s.social&&s.social.youtube)||s.youtube||'')}" placeholder="https://youtube.com/..."></div>
+          <div class="fgr full"><label>Медіа для гостей (URL через новий рядок)</label>
+            <textarea id="setGuestMedia" rows="3" placeholder="https://...jpg&#10;https://...mp4">${sanitize((Array.isArray(s.guestMedia)?s.guestMedia:(s.social&&s.social.media)||[]).map(x=>typeof x==='string'?x:(x.url||'')).filter(Boolean).join('\n'))}</textarea>
+          </div>
+        </div>
+        <p class="note-sm">Зберігається разом із «Зберегти» у блоці Клуб або кнопкою нижче.</p>
+        <button type="button" class="btn btn-s" data-action="save-settings">Зберегти посилання</button>
       </div>
       <div class="card"><div class="ct">Дані</div>
         <div class="fa" style="flex-direction:column;align-items:stretch;gap:10px">

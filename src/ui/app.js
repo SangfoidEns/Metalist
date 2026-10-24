@@ -685,7 +685,17 @@ const App = {
     sel._bound = true;
     sel.addEventListener('change', () => {
       try { window.__playerCompareId = sel.value || ''; } catch (_) {}
-      try { this.renderCurrent(); } catch (_) {}
+      try { 
+    try {
+      document.body.classList.remove('role-coach', 'role-player', 'role-guest');
+      if (typeof AuthManager !== 'undefined') {
+        if (AuthManager.isCoach && AuthManager.isCoach()) document.body.classList.add('role-coach');
+        else if (AuthManager.isPlayer && AuthManager.isPlayer()) document.body.classList.add('role-player');
+        else document.body.classList.add('role-guest');
+      }
+    } catch (_) {}
+
+    this.renderCurrent(); } catch (_) {}
     });
   },
   handleTelegramBack() {
@@ -843,7 +853,19 @@ const App = {
     this._afterPanelToggle();
   },
 
+  syncRoleClass() {
+    try {
+      document.body.classList.remove('role-coach', 'role-player', 'role-guest');
+      if (typeof AuthManager !== 'undefined') {
+        if (AuthManager.isCoach && AuthManager.isCoach()) document.body.classList.add('role-coach');
+        else if (AuthManager.isPlayer && AuthManager.isPlayer()) document.body.classList.add('role-player');
+        else document.body.classList.add('role-guest');
+      }
+    } catch (_) {}
+  },
   renderCurrent() {
+    try { this.syncRoleClass(); } catch (_) {}
+
     try {
       const v = (Store.get().ui && Store.get().ui.view) || 'dashboard';
       document.body.classList.toggle('board-on', v === 'board');
