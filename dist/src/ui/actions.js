@@ -936,13 +936,21 @@ const Actions = {
 
   saveSettings() {
     const s = Store.get().settings;
-    s.clubName = document.getElementById('setName')?.value || s.clubName;
-    s.clubShort = document.getElementById('setShort')?.value || s.clubShort;
-    s.primary = document.getElementById('setPri')?.value || s.primary;
-    s.accent = document.getElementById('setAcc')?.value || s.accent;
-    s.defaultDuration = +document.getElementById('setDur')?.value || 90;
-    s.defaultIntensity = +document.getElementById('setInt')?.value || 6;
-    s.autosave = document.getElementById('setAuto')?.checked !== false;
+    // IDs must match settings form in views.js
+    const clubEl = document.getElementById('setClubName') || document.getElementById('setName');
+    const shortEl = document.getElementById('setClubShort') || document.getElementById('setShort');
+    const priEl = document.getElementById('setPrimary') || document.getElementById('setPri');
+    const accEl = document.getElementById('setAccent') || document.getElementById('setAcc');
+    if (clubEl && clubEl.value.trim()) s.clubName = clubEl.value.trim();
+    if (shortEl && shortEl.value.trim()) s.clubShort = shortEl.value.trim();
+    if (priEl && priEl.value) s.primary = priEl.value;
+    if (accEl && accEl.value) s.accent = accEl.value;
+    const durEl = document.getElementById('setDur') || document.getElementById('setDefaultDuration');
+    const intEl = document.getElementById('setInt') || document.getElementById('setDefaultIntensity');
+    if (durEl) s.defaultDuration = +durEl.value || 90;
+    if (intEl) s.defaultIntensity = +intEl.value || 6;
+    const autoEl = document.getElementById('setAuto') || document.getElementById('setAutosave');
+    if (autoEl) s.autosave = autoEl.checked !== false;
     // Social for guests
     if (!s.social) s.social = {};
     const tgCh = document.getElementById('setTgChannel')?.value?.trim();

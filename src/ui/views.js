@@ -123,7 +123,7 @@ const Views = {
       let gifts = [];
       try {
         if (typeof CoachTools !== 'undefined' && CoachTools.playerGifts) {
-          gifts = CoachTools.playerGifts(person.id).filter(g => g.attached);
+          gifts = CoachTools.playerGifts(person.id);
         }
       } catch (_) {}
       const acc = this._posAccent(person.position);
@@ -170,7 +170,7 @@ const Views = {
 
     return `
       <div class="club-profile">
-        <div class="app-build-tag" aria-hidden="true">build 2026.10.24-h · full</div>
+        <div class="app-build-tag" aria-hidden="true">build 2026.10.24-k · full</div>
 
         <!-- Telegram-style profile card (coach/player) -->
         ${(() => {
@@ -184,13 +184,22 @@ const Views = {
             : `<span class="cp-avatar-ph">${sanitize(pc.initials || '??')}</span>`;
           return `
         <div class="cp-hero cp-person cp-clean" style="--pos-bg:${pc.accent.bg};--pos-ring:${pc.accent.ring}">
-          <button type="button" class="cp-avatar" ${avAction}
-            title="${pc.kind === 'coach' ? 'Дошка' : 'FIFA-картка'}"
-            style="border-color:var(--pos-ring);background:var(--pos-bg)">
-            ${ph}
-          </button>
+          <div class="cp-avatar-wrap">
+            <button type="button" class="cp-avatar" ${avAction}
+              title="${pc.kind === 'coach' ? 'Дошка' : 'FIFA-картка'}"
+              style="border-color:var(--pos-ring);background:var(--pos-bg)">
+              ${ph}
+            </button>
+            ${(pc.gifts && pc.gifts.length) ? ('<div class="cp-gift-orbit" aria-hidden="true">' + pc.gifts.slice(0, 8).map((g, i) => {
+              const ang = (i / Math.max(pc.gifts.length, 1)) * Math.PI * 2 - Math.PI / 2;
+              const r = 52;
+              const x = Math.cos(ang) * r;
+              const y = Math.sin(ang) * r;
+              return '<span class="cp-gift-orb" style="transform:translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)" title="' + sanitize(g.label || '') + '">' + (g.ico || '★') + '</span>';
+            }).join('') + '</div>') : ''}
+          </div>
           <h1 class="cp-title">${sanitize(pc.name)}</h1>
-          <div class="cp-role-badge" style="border-color:var(--pos-ring);color:var(--pos-ring)">${sanitize(pc.pos)}</div>
+          <div class="cp-role-badge" ${pc.kind === 'coach' ? 'data-action="coach-easter" role="button" title="Утримуйте 1с · картка тренера"' : ''} style="border-color:var(--pos-ring);color:var(--pos-ring);cursor:${pc.kind === 'coach' ? 'pointer' : 'default'}">${sanitize(pc.pos)}</div>
           <div class="cp-club-line">${sanitize(club)}</div>
           <div class="cp-status">
             <span class="cp-dot"></span>
@@ -204,7 +213,7 @@ const Views = {
         <!-- Quick pills -->
         <div class="cp-pills">
           <button type="button" class="cp-pill cp-pill-p" data-action="new-training">+ Нове тренування</button>
-          <button type="button" class="cp-pill" data-view="schemes">Схеми</button>
+          <button type="button" class="cp-pill" data-view="tactics">Схеми</button>
           <button type="button" class="cp-pill" data-view="players">Склад</button>
           <button type="button" class="cp-pill" data-view="analytics">Статистика</button>
         </div>
@@ -607,7 +616,7 @@ const Views = {
 
       <div class="cp-pills player-quick">
         <button type="button" class="cp-pill cp-pill-primary" data-action="open-default-board">⚽ Дошка</button>
-        <button type="button" class="cp-pill" data-view="schemes">📋 Схеми</button>
+        <button type="button" class="cp-pill" data-view="tactics">📋 Схеми</button>
         <button type="button" class="cp-pill" data-view="trainings">📅 Тренування</button>
         <button type="button" class="cp-pill" data-view="players">👥 Склад</button>
         <button type="button" class="cp-pill" data-view="analytics">📊 Аналітика</button>
@@ -1219,7 +1228,7 @@ const Views = {
       <div class="card"><div class="ct">Про застосунок</div>
         <p style="font-size:12px;color:var(--muted);line-height:1.6">
           Тренерська платформа · МЕТАЛІСТ ШТУТГАРТ<br>
-          Schema v${typeof SCHEMA_VERSION !== 'undefined' ? SCHEMA_VERSION : 2} · build 2026.10.24-h<br>
+          Schema v${typeof SCHEMA_VERSION !== 'undefined' ? SCHEMA_VERSION : 2} · build 2026.10.24-k<br>
           localStorage · Telegram Cloud
         </p>
       </div>`;

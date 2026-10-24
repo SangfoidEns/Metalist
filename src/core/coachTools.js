@@ -206,14 +206,15 @@ CoachTools.awardGift = function (playerId, giftId, note) {
     ico: cat.ico,
     label: cat.label,
     note: note || '',
-    attached: false,
+    attached: true, // одразу на профілі (тренер нагороджує → видно навколо аватара)
     createdAt: new Date().toISOString(),
     by: 'coach'
   };
   s.gifts.push(gift);
   try { StorageManager.save(); } catch (_) {}
   try { TelegramManager.hapticSuccess && TelegramManager.hapticSuccess(); } catch (_) {}
-  if (typeof Toast !== 'undefined') Toast.show('Подарунок «' + cat.label + '» надіслано', 'ok');
+  if (typeof Toast !== 'undefined') Toast.show('Подарунок «' + cat.label + '» на профілі', 'ok');
+  try { if (typeof App !== 'undefined' && App.renderCurrent) App.renderCurrent(); } catch (_) {}
   return gift;
 };
 

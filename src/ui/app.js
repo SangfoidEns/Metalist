@@ -18,6 +18,22 @@ const App = {
     try { /* плаваюча навігація вимкнена — статичний сайдбар справа */ } catch (e) { console.warn('nav', e); }
     try { if (typeof AuthManager !== 'undefined') AuthManager.init(); } catch (e) { console.warn('Auth', e); }
     try { if (typeof AuthManager !== 'undefined') { AuthManager._resolveRole(); AuthManager._applyUiRole(); } } catch (_) {}
+    // Server HMAC validation of Telegram initData (async — does not block first paint)
+    try {
+      if (typeof AuthManager !== 'undefined' && AuthManager.validateWithServer) {
+        AuthManager.validateWithServer().then((res) => {
+          try {
+            if (res && res.source === 'server' && res.ok) {
+              this.applyBranding && this.applyBranding();
+              this.renderCurrent && this.renderCurrent();
+            } else if (res && res.source === 'error' && (res.error === 'hash_mismatch' || res.error === 'auth_date_expired')) {
+              if (typeof Toast !== 'undefined') Toast.show('Сесію Telegram не підтверджено', 'warn');
+              this.renderCurrent && this.renderCurrent();
+            }
+          } catch (_) {}
+        }).catch(() => {});
+      }
+    } catch (_) {}
     try { BoardEngine.init(); } catch (e) { console.warn('board', e); }
     const view = (Store.get().ui && Store.get().ui.view) || 'dashboard';
     if (view === 'board') this.allowBoardOnce('logo');
@@ -295,8 +311,26 @@ const App = {
   openCoachCard() {
     const name = (typeof AuthManager !== 'undefined' && AuthManager.displayName)
       ? AuthManager.displayName() : 'Artem Serdiuk';
-    const photo = (typeof AuthManager !== 'undefined' && AuthManager.user && AuthManager.user.photo_url)
-      ? AuthManager.user.photo_url : '';
+    // Priority: settings coach photo → Telegram user photo → linked player photo
+    let photo = '';
+    try {
+      const st = (typeof Store !== 'undefined' && Store.get()) || {};
+      photo = st.coachPhoto || (st.settings && st.settings.coachPhoto) || '';
+      if (!photo && typeof AuthManager !== 'undefined' && AuthManager.user) {
+        photo = AuthManager.user.photo_url || AuthManager.user.photoUrl || '';
+      }
+      if (!photo && typeof TelegramManager !== 'undefined' && TelegramManager.getUserPhotoUrl) {
+        photo = TelegramManager.getUserPhotoUrl() || '';
+      }
+      if (!photo && typeof TelegramManager !== 'undefined' && TelegramManager.tg) {
+        const u = TelegramManager.tg.initDataUnsafe && TelegramManager.tg.initDataUnsafe.user;
+        if (u && u.photo_url) photo = u.photo_url;
+      }
+    } catch (_) {}
+    const initials = (name || 'AS').split(/\s+/).map(p => p[0] || '').join('').slice(0, 2).toUpperCase() || 'AS';
+    const photoHtml = photo
+      ? '<img src="'+String(photo).replace(/"/g,'&quot;')+'" alt="" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextElementSibling&&(this.nextElementSibling.style.display=\'grid\')"/><div class="cc-photo-ph" style="display:none">'+initials+'</div>'
+      : '<div class="cc-photo-ph">'+initials+'</div>';
     document.querySelectorAll('.coach-card-overlay').forEach(el => el.remove());
     const ov = document.createElement('div');
     ov.className = 'coach-card-overlay';
@@ -306,7 +340,7 @@ const App = {
         <div class="cc-frame">
           <div class="cc-rating">94</div>
           <div class="cc-pos">HEAD COACH</div>
-          <div class="cc-photo">${photo ? '<img src="'+photo+'" alt="">' : '<div class="cc-photo-ph">АС</div>'}</div>
+          <div class="cc-photo">${photoHtml}</div>
           <div class="cc-club">METALIST STUTTGART</div>
           <div class="cc-name">${(typeof sanitize==='function'?sanitize(name):name).toUpperCase()}</div>
           <div class="cc-stats">
@@ -757,6 +791,10 @@ const App = {
   },
 
   navigate(view) {
+    // Aliases for dashboard pills / legacy links
+    if (view === 'schemes' || view === 'scheme') view = 'tactics';
+    if (view === 'stats' || view === 'statistics') view = 'analytics';
+    if (view === 'squad' || view === 'roster') view = 'players';
     // iOS: після file picker focus може «клікнути» логотип — блокуємо
     try {
       if (typeof StorageManager !== 'undefined' && StorageManager.isIoLocked && StorageManager.isIoLocked()) {
@@ -818,6 +856,19 @@ const App = {
       }
       try { TelegramManager.showBackButton(); } catch (_) {}
       try { TelegramManager.haptic('light'); } catch (_) {}
+      // iOS Telegram: viewport settles after expand — refit stage 2×
+      const refit = () => {
+        try {
+          if (typeof BoardEngine !== 'undefined') {
+            BoardEngine._sizeStageToPitch && BoardEngine._sizeStageToPitch();
+            BoardEngine.applyCamera && BoardEngine.applyCamera();
+            BoardEngine.renderTokens && BoardEngine.renderTokens();
+            BoardEngine.renderDrawings && BoardEngine.renderDrawings();
+            BoardEngine.renderToolbar && BoardEngine.renderToolbar();
+          }
+        } catch (_) {}
+      };
+      requestAnimationFrame(() => { refit(); setTimeout(refit, 120); setTimeout(refit, 400); });
     } else {
       // Вихід з дошки — завжди знімаємо FS/board-only, інакше UI «мертвий»
       try { if (typeof BoardEngine !== 'undefined' && BoardEngine.leaveBoardMode) BoardEngine.leaveBoardMode(); } catch (_) {}
@@ -1801,13 +1852,23 @@ const App = {
         return this.toggleTheme();
       }
       if (action === 'toggle-tools-tray') {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
         const ab = Store.get().activeBoard;
         if (!ab) return;
         ab.toolsTrayOpen = !ab.toolsTrayOpen;
         if (ab.toolsTrayOpen) ab.paletteOpen = false;
         document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
-        try { BoardEngine.renderToolbar(); } catch (_) {}
+        // Re-render toolbar so tray HTML matches state, then force-open portal
+        try { BoardEngine.renderToolbar && BoardEngine.renderToolbar(); } catch (_) {}
+        const tray = document.getElementById('btbToolsTray');
+        if (tray) {
+          tray.classList.toggle('open', !!ab.toolsTrayOpen);
+          tray.setAttribute('aria-hidden', ab.toolsTrayOpen ? 'false' : 'true');
+          // Portal to body so overflow:hidden parents cannot clip it (iOS Telegram)
+          if (ab.toolsTrayOpen && tray.parentElement !== document.body) {
+            document.body.appendChild(tray);
+          }
+        }
         try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
         return;
       }

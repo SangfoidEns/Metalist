@@ -250,28 +250,52 @@ const BoardEngine = {
       const c = document.getElementById('fieldContainer');
       const stage = document.getElementById('fieldStage');
       if (!c || !stage) return;
-      const cw = c.clientWidth || 1;
-      const ch = c.clientHeight || 1;
-      const AR = 68 / 105; // width/height of pitch
+      const cw = Math.max(1, c.clientWidth || 1);
+      const ch = Math.max(1, c.clientHeight || 1);
+      // Official pitch ratio 68m × 105m → width/height
+      const AR = 68 / 105;
       let w, h;
       if (cw / ch > AR) {
-        // container wider than pitch → height-limited
         h = ch;
         w = h * AR;
       } else {
         w = cw;
         h = w / AR;
       }
-      stage.style.position = 'absolute';
-      stage.style.width = Math.round(w) + 'px';
-      stage.style.height = Math.round(h) + 'px';
-      stage.style.left = Math.round((cw - w) / 2) + 'px';
-      stage.style.top = Math.round((ch - h) / 2) + 'px';
-      stage.style.right = 'auto';
-      stage.style.bottom = 'auto';
-      stage.style.inset = 'auto';
-      stage.style.maxWidth = '100%';
-      stage.style.maxHeight = '100%';
+      w = Math.max(120, Math.round(w));
+      h = Math.max(180, Math.round(h));
+      // Inline !important-equivalent: clear conflicting CSS inset/100%
+      stage.style.cssText = [
+        'position:absolute',
+        'width:' + w + 'px',
+        'height:' + h + 'px',
+        'left:' + Math.round((cw - w) / 2) + 'px',
+        'top:' + Math.round((ch - h) / 2) + 'px',
+        'right:auto',
+        'bottom:auto',
+        'inset:auto',
+        'max-width:none',
+        'max-height:none',
+        'margin:0',
+        'box-sizing:border-box',
+        'aspect-ratio:68/105',
+        'overflow:visible',
+        'transform-origin:50% 50%'
+      ].join(';');
+      // SVG must fill stage exactly (no letterbox) so % chips == markings
+      const svg = document.getElementById('fieldSvg');
+      const draw = document.getElementById('drawSvg');
+      [svg, draw].forEach(el => {
+        if (!el) return;
+        el.setAttribute('preserveAspectRatio', 'none');
+        el.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
+      });
+      const layer = document.getElementById('playersLayer');
+      if (layer) {
+        layer.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none';
+      }
+      this._stageW = w;
+      this._stageH = h;
     } catch (_) {}
   },
   zoomFit() { this.fitField(); },
@@ -1537,15 +1561,19 @@ const BoardEngine = {
       '';
   },
 
-  /** Розмір фішки відносно видимої висоти поля (розмітка ~105м, гравець ~1.7%) */
+  /** Розмір фішки = % ширини поля → масштабується разом із розміткою. */
   tokenMetrics() {
-    // Розмір фішки пропорційний ширині поля (не «мігрує» при resize)
     const stage = document.getElementById('fieldStage');
-    const w = (stage && stage.clientWidth) || (document.getElementById('fieldContainer') || {}).clientWidth || 320;
-    const BENCH_AVATAR = Math.max(22, Math.min(40, Math.round(w * 0.048)));
-    const player = BENCH_AVATAR;
-    const ball = Math.round(player * 0.42);
-    const inv = Math.round(player * 0.36);
+    // Prefer measured stage width; on iOS first frame may be 0 → fallback container
+    let w = this._stageW || (stage && stage.clientWidth) || 0;
+    if (w < 80) {
+      const c = document.getElementById('fieldContainer');
+      w = (c && c.clientWidth) || 320;
+    }
+    // ~5.2% ширини поля; clamp tighter for phones so chips stay readable but scale down
+    const player = Math.max(16, Math.min(42, Math.round(w * 0.052)));
+    const ball = Math.max(8, Math.round(player * 0.40));
+    const inv = Math.max(10, Math.round(player * 0.38));
     const cone = Math.round(inv * 1.05);
     const equip = inv;
     const chip = Math.round(inv * 0.95);
@@ -1553,10 +1581,11 @@ const BoardEngine = {
     const mark = Math.round(inv * 0.55);
     const markSq = Math.round(inv * 0.95);
     const goal = Math.round(player * 1.35);
+    const font = Math.max(8, Math.min(14, Math.round(player * 0.38)));
     return {
       player, ball, cone, equip, chip, chipLg, mark, markSq, inv, goal,
-      font: 11,
-      ringPad: 5
+      font,
+      ringPad: Math.max(4, Math.round(player * 0.18))
     };
   },
 
@@ -2417,6 +2446,13 @@ const BoardEngine = {
     // Sync tray / palette body classes after every toolbar re-render
     try {
       document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
+      try {
+        const tray = document.getElementById('btbToolsTray');
+        if (tray) {
+          tray.classList.toggle('open', !!ab.toolsTrayOpen);
+          tray.setAttribute('aria-hidden', ab.toolsTrayOpen ? 'false' : 'true');
+        }
+      } catch (_) {}
       document.body.classList.toggle('palette-open', !!ab.paletteOpen);
     } catch (_) {}
   },

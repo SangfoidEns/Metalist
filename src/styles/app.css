@@ -6841,3 +6841,223 @@ body.tools-tray-open #btbToolsTray,
   min-height: 48px !important;
   cursor: pointer !important;
 }
+
+
+/* ========== 2026.10.24-j CRITICAL OVERRIDES ========== */
+
+/* Field stage: NEVER stretch full container — JS sets exact 68:105 box */
+#fieldStage.field-stage,
+.field-stage#fieldStage,
+body.mode-board-focus #fieldStage {
+  inset: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: 68 / 105;
+  overflow: visible !important;
+}
+#fieldSvg, #drawSvg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+#playersLayer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+}
+#playersLayer .pt,
+#playersLayer .ball,
+#playersLayer .eq {
+  pointer-events: auto !important;
+}
+
+/* Tools tray: FIXED bottom sheet — never clipped by overflow:hidden parents */
+#boardToolbarBottom {
+  position: relative !important;
+  overflow: visible !important;
+  z-index: 90 !important;
+}
+#v-board.view-board,
+#v-board {
+  overflow: visible !important;
+}
+body.mode-board-focus #v-board,
+body.mode-board-focus #boardArea {
+  overflow: hidden !important; /* field only */
+}
+#btbToolsTray,
+#boardToolbarBottom .btb-tray,
+.btb-tray {
+  position: fixed !important;
+  left: max(8px, env(safe-area-inset-left, 0px)) !important;
+  right: max(8px, env(safe-area-inset-right, 0px)) !important;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  max-height: min(48vh, 360px) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  transform: translateY(110%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: transform 0.25s cubic-bezier(.2,.8,.2,1), opacity 0.2s ease, visibility 0.2s !important;
+  background: rgba(14, 18, 28, 0.97) !important;
+  backdrop-filter: blur(28px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
+  border-radius: 18px 18px 14px 14px !important;
+  border: 0.5px solid rgba(255,255,255,0.12) !important;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.45) !important;
+  padding: 10px 12px 14px !important;
+  z-index: 200 !important;
+}
+body.tools-tray-open #btbToolsTray,
+body.tools-tray-open #boardToolbarBottom .btb-tray,
+body.tools-tray-open .btb-tray,
+#btbToolsTray.open,
+#boardToolbarBottom .btb-tray.open,
+.btb-tray.open {
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  display: block !important;
+  z-index: 200 !important;
+}
+.btb-tray-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.25);
+  margin: 2px auto 10px;
+}
+.btb-tray-grid { display: flex; flex-direction: column; gap: 10px; }
+.btb-tray-label {
+  font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.45);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+}
+.btb-tray-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Tactics / schemes grid — no overflow past edges */
+#v-tactics .sg,
+.view#v-tactics .sg,
+.sg {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+#v-tactics .sb2,
+.sg .sb2 {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  padding: 12px 10px !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+}
+#v-tactics .card,
+.view .card {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 420px) {
+  #v-tactics .sg, .sg {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Coach FIFA card photo */
+.coach-card-fifa .cc-photo {
+  width: 96px; height: 96px; border-radius: 50%;
+  margin: 8px auto 12px; overflow: hidden;
+  border: 3px solid rgba(232,197,71,0.55);
+  box-shadow: 0 0 24px rgba(232,197,71,0.25);
+  background: linear-gradient(145deg, #c8a84b, #8a7020);
+  display: grid; place-items: center;
+}
+.coach-card-fifa .cc-photo img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  border-radius: 50%;
+}
+.coach-card-fifa .cc-photo-ph {
+  font-size: 32px; font-weight: 800; color: #1a1a1a;
+}
+
+
+/* Gift orbit around profile avatar */
+.cp-avatar-wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+}
+.cp-avatar-wrap .cp-avatar {
+  width: 72px !important;
+  height: 72px !important;
+  margin: 0 !important;
+}
+.cp-gift-orbit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cp-gift-orb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: rgba(20,24,32,0.92);
+  border: 1px solid rgba(232,197,71,0.45);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  z-index: 2;
+}
+.cp-role-badge[data-action="coach-easter"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Tools tray portal — always on top in Telegram WebView */
+body > #btbToolsTray,
+body.tools-tray-open > #btbToolsTray {
+  position: fixed !important;
+  left: 8px !important;
+  right: 8px !important;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  max-height: min(50vh, 380px) !important;
+  z-index: 99999 !important;
+}
+
+/* TOKEN SIZE iOS LOCK — only --tok from BoardEngine.tokenMetrics */
+#playersLayer .pt,
+body.mode-board-focus #playersLayer .pt {
+  width: var(--tok, 28px) !important;
+  height: var(--tok, 28px) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  font-size: var(--tok-font, 10px) !important;
+}
+#playersLayer .pt .pt-face,
+#playersLayer .pt .pt-num {
+  font-size: inherit !important;
+}
