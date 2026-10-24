@@ -2015,7 +2015,8 @@ body.sb-open .sb-backdrop {
   z-index: 290;
   backdrop-filter: blur(2px);
 }
-.mn-hidden, .mn[hidden] {
+/* mobile nav is visible by default; only hide in board mode */
+.mn-hidden:not(.glass-nav), .mn[hidden]:not(.glass-nav) {
   display: none !important;
 }
 .app > .main {
@@ -3155,10 +3156,9 @@ body.sb-open .app > .main {
   }
 }
 
-/* Mobile nav bar optional — keep hidden if mn-hidden */
-.mn.mn-hidden,
-#mobileNav[hidden] {
-  display: none !important;
+/* glass-nav always visible except board */
+#mobileNav.glass-nav {
+  display: flex !important;
 }
 
 /* ── Relative chip badges (R-based, scale with chip size) ── */
@@ -4966,4 +4966,128 @@ body.board-on #mobileNav {
   }
   .btb-tray.open { max-height: min(38vh, 260px); }
   .btb-bottom .btb-rows { display: none !important; }
+}
+
+/* IOS GLASS NAV 2026 — верхня + нижня плашки як iOS / Telegram */
+.header.header-2tier.glass-hdr {
+  background: rgba(22, 28, 38, 0.72) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 8px 24px rgba(0, 0, 0, 0.25) !important;
+  transform: translateZ(0);
+}
+
+#mobileNav.glass-nav,
+.mn.glass-nav {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9500 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  justify-content: space-around !important;
+  gap: 0 !important;
+  min-height: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 4px 2px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
+  margin: 0 !important;
+  background: rgba(18, 22, 30, 0.78) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 -12px 32px rgba(0, 0, 0, 0.28) !important;
+  transform: translateZ(0);
+  overflow: hidden;
+}
+#mobileNav.glass-nav .mni {
+  flex: 1 1 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  min-height: 48px !important;
+  padding: 6px 2px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: rgba(235, 240, 250, 0.55) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  text-decoration: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.12s ease !important;
+  cursor: pointer !important;
+}
+#mobileNav.glass-nav .mni .ic,
+#mobileNav.glass-nav .mni .ic-svg {
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0.85 !important;
+}
+#mobileNav.glass-nav .mni .ic-svg svg {
+  width: 22px !important;
+  height: 22px !important;
+}
+#mobileNav.glass-nav .mni-label {
+  display: block !important;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+#mobileNav.glass-nav .mni.on {
+  color: #e8c547 !important;
+  background: rgba(232, 197, 71, 0.10) !important;
+}
+#mobileNav.glass-nav .mni.on .ic,
+#mobileNav.glass-nav .mni.on .ic-svg {
+  opacity: 1 !important;
+}
+#mobileNav.glass-nav .mni:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Контент не ховається під нижню навігацію */
+.app > .main,
+#main,
+.main {
+  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 8px) !important;
+}
+
+/* На дошці — ховаємо нижню навігацію повністю */
+body.mode-board-focus #mobileNav,
+body.board-only-mode #mobileNav,
+body.board-on #mobileNav,
+body.board-active #mobileNav,
+body.view-board #mobileNav {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+body.mode-board-focus .main,
+body.board-on .main,
+body.board-active .main {
+  padding-bottom: 0 !important;
+}
+
+/* На широких екранах теж показуємо glass-nav (Telegram-like), sidebar лишається додатковим */
+@media (min-width: 1024px) {
+  #mobileNav.glass-nav {
+    /* можна залишити або сховати на desktop — залишаємо для єдиного UX */
+  }
 }
