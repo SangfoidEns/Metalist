@@ -605,6 +605,11 @@ const App = {
   },
 
   initBoardToolbarDrag() {
+    /* ORDER_LOCK_NO_DRAG: top/bottom toolbars are static in flex layout */
+    if (document.getElementById('boardToolbarTop') || document.getElementById('boardToolbarBottom')) {
+      return;
+    }
+
     // Docked top/bottom bars — без плаваючого drag
     if (document.getElementById('boardToolbarTop') || document.getElementById('boardToolbarBottom')) return;
     const tb = document.getElementById('boardToolbar');
