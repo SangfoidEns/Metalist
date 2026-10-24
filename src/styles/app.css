@@ -6424,3 +6424,61 @@ body.role-player .fifa-card { display: block !important; }
 .cp-clean .cp-avatar-ph { font-size: 28px !important; font-weight: 800 !important; }
 .cp-clean .cp-title { font-size: 20px !important; margin: 0 0 8px !important; }
 .fifa-modal-wrap .fifa-card { display: block !important; margin: 0 !important; }
+
+/* Emblem ring — even circle */
+.tg-emblem { position: relative !important; }
+.tg-emblem-ring {
+  position: absolute !important;
+  inset: -4px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(232, 197, 71, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(232, 197, 71, 0.12) !important;
+  pointer-events: none !important;
+}
+.tg-emblem-face, .tg-emblem .logo-ph {
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+.tg-next-cd {
+  font-size: 9px !important;
+  color: var(--accent, #e8c547) !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+body.role-player [data-view="settings"],
+body.role-player .mni[data-view="settings"],
+body.role-guest [data-view="settings"] {
+  display: none !important;
+}
+body.role-player .coach-only,
+body.role-player [data-io="export"] {
+  display: none !important;
+}
+.pl-stats-table { font-size: 12px; }
+.pl-stats-head, .pl-stats-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.5fr 0.6fr 0.5fr 0.4fr 0.5fr;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.06);
+}
+.pl-stats-head { font-weight: 700; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.bday-greet { text-align: center; padding: 12px; }
+.bday-balloon { font-size: 48px; animation: bdayPop 0.6s ease; }
+@keyframes bdayPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.bday-row { padding: 6px 0; font-size: 13px; border-bottom: 0.5px solid rgba(255,255,255,0.06); }
+/* Field tokens stick to field layer */
+#playersLayer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+}
+#playersLayer .pt, #playersLayer .ball, #playersLayer .eq {
+  pointer-events: auto;
+}

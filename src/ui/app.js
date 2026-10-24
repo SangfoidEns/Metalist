@@ -11,6 +11,10 @@ const App = {
     try { this.applyThemeMode((Store.get().settings || {}).theme || 'dark'); } catch (e) { console.warn('theme', e); }
     this.bindEvents();
     try { this.bindEmblemGestures(); } catch (e) { console.warn("emblem", e); }
+    try {
+      if (this._cdTimer) clearInterval(this._cdTimer);
+      this._cdTimer = setInterval(() => { try { this.updateTrainingCountdown(); } catch (_) {} }, 30000);
+    } catch (_) {}
     try { /* плаваюча навігація вимкнена — статичний сайдбар справа */ } catch (e) { console.warn('nav', e); }
     try { if (typeof AuthManager !== 'undefined') AuthManager.init(); } catch (e) { console.warn('Auth', e); }
     try { if (typeof AuthManager !== 'undefined') { AuthManager._resolveRole(); AuthManager._applyUiRole(); } } catch (_) {}
@@ -860,6 +864,36 @@ const App = {
     if (name.length > 16) name = name.slice(0, 14) + '…';
     return name;
   },
+  updateTrainingCountdown() {
+    try {
+      const el = document.getElementById('nextTr');
+      const sub = document.getElementById('nextTrCountdown');
+      const s = Store.get();
+      const next = (s.trainings || []).filter(x => x.status === 'planned' && x.date >= (typeof today === 'function' ? today() : '')).sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.time||'').localeCompare(String(b.time||'')))[0];
+      if (!next) {
+        if (el) el.textContent = '—';
+        if (sub) sub.textContent = '';
+        return;
+      }
+      const name = this.formatNextTr ? this.formatNextTr(next) : (next.name || 'Тр.');
+      if (el) { el.textContent = name; el.title = (next.name || '') + ' · ' + (next.date || '') + ' ' + (next.time || ''); }
+      // countdown
+      try {
+        const [hh, mm] = String(next.time || '18:00').split(':').map(Number);
+        const dt = new Date(next.date + 'T00:00:00');
+        if (!isNaN(hh)) dt.setHours(hh || 0, mm || 0, 0, 0);
+        const ms = dt.getTime() - Date.now();
+        let cd = '';
+        if (ms > 0) {
+          const h = Math.floor(ms / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          cd = h > 48 ? (Math.floor(h/24) + 'д') : (h + 'г ' + m + 'хв');
+        } else if (ms > -7200000) cd = 'зараз';
+        else cd = '';
+        if (sub) sub.textContent = cd ? ('через ' + cd) : (next.date || '');
+      } catch (_) { if (sub) sub.textContent = next.date || ''; }
+    } catch (_) {}
+  },
   updateNextTrLabel() {
     try {
       const el = document.getElementById('nextTr');
@@ -868,6 +902,25 @@ const App = {
       const next = (s.trainings || []).filter(x => x.status === 'planned' && x.date >= (typeof today === 'function' ? today() : '')).sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0];
       el.textContent = next ? this.formatNextTr(next) : '—';
       el.title = next ? ((next.name || '') + ' · ' + (next.date || '')) : '';
+    } catch (_) {}
+  },
+  checkBirthdays() {
+    try {
+      const todayStr = (typeof today === 'function') ? today() : new Date().toISOString().slice(0,10);
+      const md = todayStr.slice(5); // MM-DD
+      const list = (Store.get().players || []).filter(p => p.birthDate && String(p.birthDate).slice(5,10) === md);
+      if (!list.length) return;
+      const names = list.map(p => ((p.firstName||'') + ' ' + (p.lastName||'')).trim() || ('#'+p.number)).join(', ');
+      const html = `<div class="bday-greet">
+        <div class="bday-balloon">🎂</div>
+        <h2>З Днем народження!</h2>
+        <p>${sanitize(names)}</p>
+        <p class="note-sm">МЕТАЛІСТ ШТУТГАРТ вітає</p>
+      </div>`;
+      if (typeof Modal !== 'undefined' && Modal.open) {
+        Modal.open('Свято', html, [{ label: '🎉 Дякуємо', cls: 'btn-p', action: 'cancel' }]);
+      }
+      try { TelegramManager.haptic && TelegramManager.haptic('success'); } catch (_) {}
     } catch (_) {}
   },
   syncRoleClass() {
@@ -882,6 +935,8 @@ const App = {
   },
   renderCurrent() {
     try { this.syncRoleClass(); } catch (_) {}
+    try { if (!this._bdayChecked) { this._bdayChecked = true; this.checkBirthdays(); } } catch (_) {}
+    try { this.updateTrainingCountdown(); } catch (_) {}
     try { this.updateNextTrLabel(); } catch (_) {}
 
     try {
@@ -1557,6 +1612,15 @@ const App = {
           localStorage.setItem('ms_btb_locked', locked ? '1' : '0');
           Toast.show(locked ? 'Панель зафіксовано' : 'Панель можна перетягувати', 'ok');
         }
+        return;
+      }
+      if (action === 'edit-self-player') {
+        e.preventDefault(); e.stopPropagation();
+        try {
+          const me = AuthManager.getLinkedPlayer && AuthManager.getLinkedPlayer();
+          if (me && typeof Actions !== 'undefined' && Actions.editPlayer) Actions.editPlayer(me.id);
+          else Toast.show('Профіль не прив\'язано', 'warn');
+        } catch (_) {}
         return;
       }
       if (action === 'open-fifa-card') {

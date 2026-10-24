@@ -198,6 +198,7 @@ const Views = {
         <!-- Quick pills -->
         <div class="cp-pills">
           <button type="button" class="cp-pill cp-pill-p" data-action="new-training">+ Нове тренування</button>
+          <button type="button" class="cp-pill" data-view="schemes">Схеми</button>
           <button type="button" class="cp-pill" data-view="players">Склад</button>
           <button type="button" class="cp-pill" data-view="analytics">Статистика</button>
         </div>
@@ -584,6 +585,7 @@ const Views = {
     return `
       <div class="st">Мій кабінет · МЕТАЛІСТ ШТУТГАРТ
         <button type="button" class="btn btn-s btn-sm" data-io="import" data-action="import-trigger">Імпорт JSON</button>
+        <button type="button" class="btn btn-s btn-sm" data-action="edit-self-player">Моя картка</button>
       </div>
       ${pc ? `
         <div class="cp-hero cp-person cp-clean" style="--pos-bg:${pc.accent.bg};--pos-ring:${pc.accent.ring}">
@@ -762,10 +764,14 @@ const Views = {
       return 0;
     };
     const isStarter = (p) => {
-      if (p.isStarter === true || p.role === 'starter' || p.squadRole === 'starter') return true;
-      if (p.isStarter === false || p.role === 'reserve' || p.squadRole === 'reserve' || p.onBench) return false;
-      // heuristic: first 11 by number if no flag — prefer available non-injured as starter-ish
-      return !(p.status === 'injured' || p.status === 'rehab' || p.status === 'recovery');
+      const g = String(p.group || p.squadRole || p.role || '').toLowerCase();
+      if (g === 'reserve' || g === 'bench' || g === 'reserves') return false;
+      if (g === 'main' || g === 'starter' || g === 'first' || g === 'basis') return true;
+      if (p.isStarter === true) return true;
+      if (p.isStarter === false || p.onBench) return false;
+      // injured → not counted as active starter label priority
+      if (p.status === 'injured' || p.status === 'rehab' || p.status === 'recovery') return false;
+      return true; // default basis unless marked reserve
     };
     const roleLabel = (p) => isStarter(p) ? 'Основа' : 'Резерв';
 
@@ -1034,7 +1040,35 @@ const Views = {
             <div style="min-width:70px"><div class="lb2"><div class="lbf ${lc}" style="width:${Math.min(100, bar * 10)}%"></div></div></div>
           </div>`;
         }).join('')}
-      </div>`;
+      </div>
+      <div class="card glass"><div class="ct">Статистика гравців (як у кабінеті гравця)</div>
+        <div class="pl-stats-table">
+          <div class="pl-stats-head"><span>Гравець</span><span>Поз.</span><span>Група</span><span>Відв.%</span><span>RPE</span><span>Load28</span></div>
+          ${s.players.slice().sort((a,b)=>String(a.lastName||'').localeCompare(String(b.lastName||''),'uk')).map(p => {
+            const st = this._playerStats(p.id);
+            const g = (p.group === 'reserve') ? 'Резерв' : 'Основа';
+            return `<div class="pl-stats-row">
+              <span>#${p.number||'—'} ${sanitize(p.lastName||'')}</span>
+              <span>${sanitize(p.position||'—')}</span>
+              <span>${g}</span>
+              <span>${st.attPct!=null?st.attPct:'—'}%</span>
+              <span>${st.avgRpe!=null?st.avgRpe:'—'}</span>
+              <span>${st.load28!=null?st.load28:'—'}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="card glass"><div class="ct">Дні народження (найближчі)</div>
+        ${(() => {
+          const list = (s.players||[]).filter(p => p.birthDate).map(p => {
+            const d = String(p.birthDate).slice(5,10); // MM-DD
+            return { p, md: d };
+          }).sort((a,b)=>a.md.localeCompare(b.md));
+          if (!list.length) return '<p class="note-sm">Додайте дату народження в анкеті гравця.</p>';
+          return list.map(({p,md}) => `<div class="bday-row">🎂 ${md} — #${p.number||''} ${sanitize(p.lastName||'')} ${sanitize(p.firstName||'')}</div>`).join('');
+        })()}
+      </div>
+`;
   },
 
   settings() {

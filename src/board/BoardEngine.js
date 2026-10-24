@@ -218,6 +218,11 @@ const BoardEngine = {
   fitField() {
     this.camera = { x: 0, y: 0, zoom: 1 };
     this.applyCamera();
+    requestAnimationFrame(() => {
+      this.applyCamera();
+      this.renderTokens();
+      this.renderDrawings && this.renderDrawings();
+    });
     this.renderTokens();
     this.renderDrawings();
   },
@@ -1478,9 +1483,10 @@ const BoardEngine = {
 
   /** Розмір фішки відносно видимої висоти поля (розмітка ~105м, гравець ~1.7%) */
   tokenMetrics() {
-    // Базовий розмір = як аватар на лавці (28px). Zoom/pan — через CSS transform #fieldStage,
-    // тому фішки масштабуються разом із полем, позиції лишаються у 0..1.
-    const BENCH_AVATAR = 28;
+    // Розмір фішки пропорційний ширині поля (не «мігрує» при resize)
+    const stage = document.getElementById('fieldStage');
+    const w = (stage && stage.clientWidth) || (document.getElementById('fieldContainer') || {}).clientWidth || 320;
+    const BENCH_AVATAR = Math.max(22, Math.min(40, Math.round(w * 0.048)));
     const player = BENCH_AVATAR;
     const ball = Math.round(player * 0.42);
     const inv = Math.round(player * 0.36);
