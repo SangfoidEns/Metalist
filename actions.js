@@ -498,6 +498,7 @@ const Actions = {
         <div class="fgr"><label>Готовність %</label><input type="number" id="plR" value="95" min="0" max="100"></div>
         <div class="fgr"><label>Група</label><select id="plG"><option value="main">Основний</option><option value="reserve">Резерв</option><option value="gk">Воротарі</option></select></div>
         <div class="fgr full"><label class="chk-label"><input type="checkbox" id="plCap"> Капітан команди</label></div>
+        <div class="fgr"><label>Дата народження</label><input type="date" id="plBirth"></div>
         <div class="fgr"><label>Telegram (@нік)</label><input id="plTg" placeholder="@username" autocomplete="off"></div>
         <div class="fgr"><label>Телефон</label><input id="plPhone" type="tel" placeholder="+49..." autocomplete="off"></div>
         <div class="fgr full"><label>Примітки</label><textarea id="plNo"></textarea></div>
@@ -528,7 +529,8 @@ const Actions = {
       load: 0, notes: document.getElementById('plNo')?.value || '',
       group: document.getElementById('plG')?.value || 'main', tags: [],
       telegramUsername: (document.getElementById('plTg')?.value || '').replace(/^@/, '').trim(),
-      phone: (document.getElementById('plPhone')?.value || '').trim()
+      phone: (document.getElementById('plPhone')?.value || '').trim(),
+      birthDate: document.getElementById('plBirth')?.value || ''
     });
     StorageManager.save();
     Modal.close();
@@ -569,6 +571,7 @@ const Actions = {
           <option value="reserve" ${p.group==='reserve'?'selected':''}>Резерв</option>
           <option value="gk" ${p.group==='gk'?'selected':''}>Воротарі</option>
         </select></div>
+        <div class="fgr"><label>Дата народження</label><input type="date" id="peBirth" value="${sanitize(p.birthDate||'')}"></div>
         <div class="fgr full"><label>Фото гравця (URL або data)</label>
           <input id="pePhoto" type="url" placeholder="https://… або завантажте файл нижче" value="${sanitize(p.photoUrl||'')}">
           <input id="pePhotoFile" type="file" accept="image/*" style="margin-top:6px;font-size:12px">
@@ -604,6 +607,9 @@ const Actions = {
     p.notes = document.getElementById('peNo')?.value || '';
     p.telegramUsername = (document.getElementById('peTg')?.value || '').replace(/^@/, '').trim();
     p.phone = (document.getElementById('pePhone')?.value || '').trim();
+    const bd = document.getElementById('peBirth')?.value;
+    if (bd !== undefined) p.birthDate = bd || '';
+
     const pePhotoVal = document.getElementById('pePhoto')?.value?.trim();
     if (pePhotoVal) p.photoUrl = pePhotoVal;
     const wantCap = !!document.getElementById('peCap')?.checked;
@@ -930,13 +936,21 @@ const Actions = {
 
   saveSettings() {
     const s = Store.get().settings;
-    s.clubName = document.getElementById('setName')?.value || s.clubName;
-    s.clubShort = document.getElementById('setShort')?.value || s.clubShort;
-    s.primary = document.getElementById('setPri')?.value || s.primary;
-    s.accent = document.getElementById('setAcc')?.value || s.accent;
-    s.defaultDuration = +document.getElementById('setDur')?.value || 90;
-    s.defaultIntensity = +document.getElementById('setInt')?.value || 6;
-    s.autosave = document.getElementById('setAuto')?.checked !== false;
+    // IDs must match settings form in views.js
+    const clubEl = document.getElementById('setClubName') || document.getElementById('setName');
+    const shortEl = document.getElementById('setClubShort') || document.getElementById('setShort');
+    const priEl = document.getElementById('setPrimary') || document.getElementById('setPri');
+    const accEl = document.getElementById('setAccent') || document.getElementById('setAcc');
+    if (clubEl && clubEl.value.trim()) s.clubName = clubEl.value.trim();
+    if (shortEl && shortEl.value.trim()) s.clubShort = shortEl.value.trim();
+    if (priEl && priEl.value) s.primary = priEl.value;
+    if (accEl && accEl.value) s.accent = accEl.value;
+    const durEl = document.getElementById('setDur') || document.getElementById('setDefaultDuration');
+    const intEl = document.getElementById('setInt') || document.getElementById('setDefaultIntensity');
+    if (durEl) s.defaultDuration = +durEl.value || 90;
+    if (intEl) s.defaultIntensity = +intEl.value || 6;
+    const autoEl = document.getElementById('setAuto') || document.getElementById('setAutosave');
+    if (autoEl) s.autosave = autoEl.checked !== false;
     // Social for guests
     if (!s.social) s.social = {};
     const tgCh = document.getElementById('setTgChannel')?.value?.trim();

@@ -11,9 +11,29 @@ const App = {
     try { this.applyThemeMode((Store.get().settings || {}).theme || 'dark'); } catch (e) { console.warn('theme', e); }
     this.bindEvents();
     try { this.bindEmblemGestures(); } catch (e) { console.warn("emblem", e); }
+    try {
+      if (this._cdTimer) clearInterval(this._cdTimer);
+      this._cdTimer = setInterval(() => { try { this.updateTrainingCountdown(); } catch (_) {} }, 30000);
+    } catch (_) {}
     try { /* плаваюча навігація вимкнена — статичний сайдбар справа */ } catch (e) { console.warn('nav', e); }
     try { if (typeof AuthManager !== 'undefined') AuthManager.init(); } catch (e) { console.warn('Auth', e); }
     try { if (typeof AuthManager !== 'undefined') { AuthManager._resolveRole(); AuthManager._applyUiRole(); } } catch (_) {}
+    // Server HMAC validation of Telegram initData (async — does not block first paint)
+    try {
+      if (typeof AuthManager !== 'undefined' && AuthManager.validateWithServer) {
+        AuthManager.validateWithServer().then((res) => {
+          try {
+            if (res && res.source === 'server' && res.ok) {
+              this.applyBranding && this.applyBranding();
+              this.renderCurrent && this.renderCurrent();
+            } else if (res && res.source === 'error' && (res.error === 'hash_mismatch' || res.error === 'auth_date_expired')) {
+              if (typeof Toast !== 'undefined') Toast.show('Сесію Telegram не підтверджено', 'warn');
+              this.renderCurrent && this.renderCurrent();
+            }
+          } catch (_) {}
+        }).catch(() => {});
+      }
+    } catch (_) {}
     try { BoardEngine.init(); } catch (e) { console.warn('board', e); }
     const view = (Store.get().ui && Store.get().ui.view) || 'dashboard';
     if (view === 'board') this.allowBoardOnce('logo');
@@ -291,8 +311,26 @@ const App = {
   openCoachCard() {
     const name = (typeof AuthManager !== 'undefined' && AuthManager.displayName)
       ? AuthManager.displayName() : 'Artem Serdiuk';
-    const photo = (typeof AuthManager !== 'undefined' && AuthManager.user && AuthManager.user.photo_url)
-      ? AuthManager.user.photo_url : '';
+    // Priority: settings coach photo → Telegram user photo → linked player photo
+    let photo = '';
+    try {
+      const st = (typeof Store !== 'undefined' && Store.get()) || {};
+      photo = st.coachPhoto || (st.settings && st.settings.coachPhoto) || '';
+      if (!photo && typeof AuthManager !== 'undefined' && AuthManager.user) {
+        photo = AuthManager.user.photo_url || AuthManager.user.photoUrl || '';
+      }
+      if (!photo && typeof TelegramManager !== 'undefined' && TelegramManager.getUserPhotoUrl) {
+        photo = TelegramManager.getUserPhotoUrl() || '';
+      }
+      if (!photo && typeof TelegramManager !== 'undefined' && TelegramManager.tg) {
+        const u = TelegramManager.tg.initDataUnsafe && TelegramManager.tg.initDataUnsafe.user;
+        if (u && u.photo_url) photo = u.photo_url;
+      }
+    } catch (_) {}
+    const initials = (name || 'AS').split(/\s+/).map(p => p[0] || '').join('').slice(0, 2).toUpperCase() || 'AS';
+    const photoHtml = photo
+      ? '<img src="'+String(photo).replace(/"/g,'&quot;')+'" alt="" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextElementSibling&&(this.nextElementSibling.style.display=\'grid\')"/><div class="cc-photo-ph" style="display:none">'+initials+'</div>'
+      : '<div class="cc-photo-ph">'+initials+'</div>';
     document.querySelectorAll('.coach-card-overlay').forEach(el => el.remove());
     const ov = document.createElement('div');
     ov.className = 'coach-card-overlay';
@@ -302,7 +340,7 @@ const App = {
         <div class="cc-frame">
           <div class="cc-rating">94</div>
           <div class="cc-pos">HEAD COACH</div>
-          <div class="cc-photo">${photo ? '<img src="'+photo+'" alt="">' : '<div class="cc-photo-ph">АС</div>'}</div>
+          <div class="cc-photo">${photoHtml}</div>
           <div class="cc-club">METALIST STUTTGART</div>
           <div class="cc-name">${(typeof sanitize==='function'?sanitize(name):name).toUpperCase()}</div>
           <div class="cc-stats">
@@ -456,7 +494,14 @@ const App = {
       if (badge) {
         if (typeof AuthManager !== 'undefined') {
           const role = AuthManager.roleLabel();
-          const name = AuthManager.displayName();
+          let name = AuthManager.displayName() || '';
+          name = String(name)
+            .replace(/[\u200B-\u200D\uFEFF\u2060\u00AD]/g,'')
+            .replace(/[\uFE00-\uFE0F]/g,'')
+            .replace(/[\u2600-\u27BF]/g,'')
+            .replace(/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g,'')
+            .replace(/[\u2600-\u26FF]/g,'')
+            .replace(/\s+/g,' ').trim();
           badge.innerHTML = '<span class="auth-role">' + sanitize(role) + '</span>: ' + sanitize(name);
           badge.title = AuthManager.user ? ('Telegram ID: ' + AuthManager.user.id) : 'Локальний режим';
         } else {
@@ -470,7 +515,7 @@ const App = {
     document.documentElement.style.setProperty('--club-accent', s.accent);
     const logo = document.getElementById('clubLogo');
     if (logo) {
-      if (s.logoData) {
+      if (s.logoData && String(s.logoData).startsWith('data:image/')) {
         logo.innerHTML = '<img src="' + s.logoData + '" alt="logo">';
       } else {
         logo.textContent = s.clubShort || 'МШ';
@@ -681,21 +726,35 @@ const App = {
 
   _bindPlayerCompare() {
     const sel = document.getElementById('playerCompareSel');
-    if (!sel || sel._bound) return;
-    sel._bound = true;
+    if (!sel) return;
+    // allow rebind after modal re-render
+    if (sel._msCmpBound) return;
+    sel._msCmpBound = true;
     sel.addEventListener('change', () => {
-      try { window.__playerCompareId = sel.value || ''; } catch (_) {}
-      try { 
-    try {
-      document.body.classList.remove('role-coach', 'role-player', 'role-guest');
-      if (typeof AuthManager !== 'undefined') {
-        if (AuthManager.isCoach && AuthManager.isCoach()) document.body.classList.add('role-coach');
-        else if (AuthManager.isPlayer && AuthManager.isPlayer()) document.body.classList.add('role-player');
-        else document.body.classList.add('role-guest');
-      }
-    } catch (_) {}
-
-    this.renderCurrent(); } catch (_) {}
+      const oid = sel.value || '';
+      try {
+        window.__playerCompareId = oid;
+        window.__coachCompareId = oid;
+      } catch (_) {}
+      // Якщо відкрита картка тренера — оновити модалку
+      try {
+        const modalBody = document.getElementById('modalBody');
+        if (modalBody && modalBody.querySelector('.coach-player-view') && typeof Views !== 'undefined' && Views.coachPlayerDetail) {
+          const btn = modalBody.querySelector('[data-player-id]');
+          const pid = btn && btn.getAttribute('data-player-id');
+          if (pid) {
+            const p = (Store.get().players || []).find(x => x.id === pid);
+            const title = 'Картка гравця · ' + ((p && (p.lastName || p.firstName)) || '');
+            if (typeof Modal !== 'undefined' && Modal.open) {
+              Modal.open(title, '<div class="fifa-modal-wrap">' + Views.coachPlayerDetail(pid) + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+              // re-bind select after re-open
+              setTimeout(() => { try { const s2 = document.getElementById('playerCompareSel'); if (s2) { s2._msCmpBound = false; App._bindPlayerCompare(); } } catch (_) {} }, 30);
+              return;
+            }
+          }
+        }
+      } catch (_) {}
+      try { this.renderCurrent(); } catch (_) {}
     });
   },
   handleTelegramBack() {
@@ -732,6 +791,10 @@ const App = {
   },
 
   navigate(view) {
+    // Aliases for dashboard pills / legacy links
+    if (view === 'schemes' || view === 'scheme') view = 'tactics';
+    if (view === 'stats' || view === 'statistics') view = 'analytics';
+    if (view === 'squad' || view === 'roster') view = 'players';
     // iOS: після file picker focus може «клікнути» логотип — блокуємо
     try {
       if (typeof StorageManager !== 'undefined' && StorageManager.isIoLocked && StorageManager.isIoLocked()) {
@@ -793,13 +856,34 @@ const App = {
       }
       try { TelegramManager.showBackButton(); } catch (_) {}
       try { TelegramManager.haptic('light'); } catch (_) {}
+      // iOS Telegram: viewport settles after expand — refit stage 2×
+      const refit = () => {
+        try {
+          if (typeof BoardEngine !== 'undefined') {
+            BoardEngine._sizeStageToPitch && BoardEngine._sizeStageToPitch();
+            BoardEngine.applyCamera && BoardEngine.applyCamera();
+            BoardEngine.renderTokens && BoardEngine.renderTokens();
+            BoardEngine.renderDrawings && BoardEngine.renderDrawings();
+            BoardEngine.renderToolbar && BoardEngine.renderToolbar();
+          }
+        } catch (_) {}
+      };
+      requestAnimationFrame(() => { refit(); setTimeout(refit, 120); setTimeout(refit, 400); });
     } else {
-      // Вихід з дошки — завжди знімаємо FS/board-only, інакше UI «мертвий»
+      // Вихід з дошки — завжди знімаємо FS/board-only і лоток інструментів
       try { if (typeof BoardEngine !== 'undefined' && BoardEngine.leaveBoardMode) BoardEngine.leaveBoardMode(); } catch (_) {}
+      try { if (typeof BoardEngine !== 'undefined' && BoardEngine.closeToolsTray) BoardEngine.closeToolsTray(true); } catch (_) {}
       document.body.classList.remove(
         'board-workspace', 'mode-board-focus', 'board-only-mode', 'board-fs-nav',
-        'bw-nav', 'bw-props', 'bw-tools-collapsed', 'bw-nav-hide', 'present-mode'
+        'bw-nav', 'bw-props', 'bw-tools-collapsed', 'bw-nav-hide', 'present-mode',
+        'tools-tray-open', 'bench-collapsed'
       );
+      // прибрати orphan tray з body
+      try {
+        const tray = document.getElementById('btbToolsTray');
+        if (tray && tray.parentElement === document.body) tray.remove();
+        document.querySelectorAll('body > .btb-tray').forEach(el => el.remove());
+      } catch (_) {}
       const boardEl = document.getElementById('v-board');
       if (boardEl) {
         boardEl.classList.remove('on');
@@ -853,7 +937,87 @@ const App = {
     this._afterPanelToggle();
   },
 
+  formatNextTr(t) {
+    if (!t) return '—';
+    let name = String(t.name || 'Тр.').replace(/^Тренування\s*/i, 'Тр. ');
+    if (name.length > 16) name = name.slice(0, 14) + '…';
+    return name;
+  },
+  updateTrainingCountdown() {
+    try {
+      const el = document.getElementById('nextTr');
+      const sub = document.getElementById('nextTrCountdown');
+      const s = Store.get();
+      const next = (s.trainings || []).filter(x => x.status === 'planned' && x.date >= (typeof today === 'function' ? today() : '')).sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.time||'').localeCompare(String(b.time||'')))[0];
+      if (!next) {
+        if (el) el.textContent = '—';
+        if (sub) sub.textContent = '';
+        return;
+      }
+      const name = this.formatNextTr ? this.formatNextTr(next) : (next.name || 'Тр.');
+      if (el) { el.textContent = name; el.title = (next.name || '') + ' · ' + (next.date || '') + ' ' + (next.time || ''); }
+      // countdown
+      try {
+        const [hh, mm] = String(next.time || '18:00').split(':').map(Number);
+        const dt = new Date(next.date + 'T00:00:00');
+        if (!isNaN(hh)) dt.setHours(hh || 0, mm || 0, 0, 0);
+        const ms = dt.getTime() - Date.now();
+        let cd = '';
+        if (ms > 0) {
+          const h = Math.floor(ms / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          cd = h > 48 ? (Math.floor(h/24) + 'д') : (h + 'г ' + m + 'хв');
+        } else if (ms > -7200000) cd = 'зараз';
+        else cd = '';
+        if (sub) sub.textContent = cd ? ('через ' + cd) : (next.date || '');
+      } catch (_) { if (sub) sub.textContent = next.date || ''; }
+    } catch (_) {}
+  },
+  updateNextTrLabel() {
+    try {
+      const el = document.getElementById('nextTr');
+      if (!el) return;
+      const s = Store.get();
+      const next = (s.trainings || []).filter(x => x.status === 'planned' && x.date >= (typeof today === 'function' ? today() : '')).sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0];
+      el.textContent = next ? this.formatNextTr(next) : '—';
+      el.title = next ? ((next.name || '') + ' · ' + (next.date || '')) : '';
+    } catch (_) {}
+  },
+  checkBirthdays() {
+    try {
+      const todayStr = (typeof today === 'function') ? today() : new Date().toISOString().slice(0,10);
+      const md = todayStr.slice(5); // MM-DD
+      const list = (Store.get().players || []).filter(p => p.birthDate && String(p.birthDate).slice(5,10) === md);
+      if (!list.length) return;
+      const names = list.map(p => ((p.firstName||'') + ' ' + (p.lastName||'')).trim() || ('#'+p.number)).join(', ');
+      const html = `<div class="bday-greet">
+        <div class="bday-balloon">🎂</div>
+        <h2>З Днем народження!</h2>
+        <p>${sanitize(names)}</p>
+        <p class="note-sm">МЕТАЛІСТ ШТУТГАРТ вітає</p>
+      </div>`;
+      if (typeof Modal !== 'undefined' && Modal.open) {
+        Modal.open('Свято', html, [{ label: '🎉 Дякуємо', cls: 'btn-p', action: 'cancel' }]);
+      }
+      try { TelegramManager.haptic && TelegramManager.haptic('success'); } catch (_) {}
+    } catch (_) {}
+  },
+  syncRoleClass() {
+    try {
+      document.body.classList.remove('role-coach', 'role-player', 'role-guest');
+      if (typeof AuthManager !== 'undefined') {
+        if (AuthManager.isCoach && AuthManager.isCoach()) document.body.classList.add('role-coach');
+        else if (AuthManager.isPlayer && AuthManager.isPlayer()) document.body.classList.add('role-player');
+        else document.body.classList.add('role-guest');
+      }
+    } catch (_) {}
+  },
   renderCurrent() {
+    try { this.syncRoleClass(); } catch (_) {}
+    try { if (!this._bdayChecked) { this._bdayChecked = true; this.checkBirthdays(); } } catch (_) {}
+    try { this.updateTrainingCountdown(); } catch (_) {}
+    try { this.updateNextTrLabel(); } catch (_) {}
+
     try {
       const v = (Store.get().ui && Store.get().ui.view) || 'dashboard';
       document.body.classList.toggle('board-on', v === 'board');
@@ -910,21 +1074,35 @@ const App = {
   updateClock() {
     const now = new Date();
     const el = document.getElementById('clock');
-    if (el) el.innerHTML = `<strong>${fmtDate(now)}</strong> · ${now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    // Компактно: дата + HH:MM (без секунд — не обрізається в пігулці)
+    if (el) {
+      const d = now.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' });
+      const t = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+      el.innerHTML = '<strong>' + d + '</strong> · ' + t;
+    }
     const s = Store.get();
-    const next = s.trainings.filter(t => t.status === 'planned' && t.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const next = (s.trainings || []).filter(t => t.status === 'planned' && t.date >= today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     const nt = document.getElementById('nextTr');
-    if (nt) {
-      if (next) {
-        const dt = new Date(next.date + 'T' + (next.time || '10:00'));
-        const diff = dt - now;
-        let cd = '—';
-        if (diff > 0) {
-          const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
-          cd = h + 'г ' + m + 'хв';
-        }
-        nt.innerHTML = `Наступне: <strong>${sanitize(next.name)}</strong> (${cd})`;
-      } else nt.innerHTML = 'Наступне: <strong>—</strong>';
+    const cdEl = document.getElementById('nextTrCountdown');
+    if (next) {
+      const short = this.formatNextTr ? this.formatNextTr(next) : (next.name || 'Тр.');
+      if (nt) {
+        nt.textContent = short;
+        nt.title = (next.name || '') + ' · ' + (next.date || '') + (next.time ? ' ' + next.time : '');
+      }
+      if (cdEl) {
+        try {
+          const dt = new Date(next.date + 'T' + (next.time || '10:00'));
+          const diff = dt - now;
+          if (diff > 0) {
+            const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
+            cdEl.textContent = 'через ' + h + 'г ' + m + 'хв';
+          } else cdEl.textContent = next.date || '';
+        } catch (_) { cdEl.textContent = next.date || ''; }
+      }
+    } else {
+      if (nt) { nt.textContent = '—'; nt.title = ''; }
+      if (cdEl) cdEl.textContent = '';
     }
   },
 
@@ -938,6 +1116,7 @@ const App = {
     const t = (Store.get().trainings || []).find(x => x.id === trainingId);
     if (!t) return;
     const cancelled = t.status === 'cancelled' || t.status === 'canceled';
+    const isCoach = typeof AuthManager !== 'undefined' && AuthManager.isCoach && AuthManager.isCoach();
     // прибрати старий sheet
     document.getElementById('tgActionSheet')?.remove();
     document.getElementById('tgActionBackdrop')?.remove();
@@ -948,10 +1127,41 @@ const App = {
     const sheet = document.createElement('div');
     sheet.id = 'tgActionSheet';
     sheet.className = 'tg-sheet';
-    sheet.innerHTML = `
-      <div class="tg-sheet-handle"></div>
-      <div class="tg-sheet-title">${typeof sanitize === 'function' ? sanitize(t.name) : t.name}</div>
-      <div class="tg-sheet-sub">${t.date || ''} · ${Views._trStatusLabel ? Views._trStatusLabel(t.status) : t.status}</div>
+    // План + статистика (для всіх)
+    const struct = (t.structure || []).map(b =>
+      '<div class="tr-plan-row"><span>' + (typeof sanitize === 'function' ? sanitize(b.title || b.name || 'Блок') : (b.title || b.name || 'Блок')) + '</span><b>' + (b.duration || 0) + ' хв</b></div>'
+    ).join('');
+    const totalMin = (t.structure || []).reduce((a, b) => a + (b.duration || 0), 0) || t.duration || 0;
+    const load = (typeof LoadModel !== 'undefined' && LoadModel.sessionLoad) ? LoadModel.sessionLoad(t.duration || totalMin, t.intensity) : ((t.duration || totalMin) * (t.intensity || 0));
+    // attendance stats for this session
+    let attPresent = 0, attTotal = 0, avgRpe = 0, rpeN = 0;
+    try {
+      const att = t.attendance || {};
+      Object.keys(att).forEach(pid => {
+        attTotal++;
+        if (att[pid] && att[pid].present !== false) attPresent++;
+        if (att[pid] && att[pid].rpe != null) { avgRpe += +att[pid].rpe; rpeN++; }
+      });
+      if (rpeN) avgRpe = Math.round((avgRpe / rpeN) * 10) / 10;
+    } catch (_) {}
+    const attPct = attTotal ? Math.round(attPresent / attTotal * 100) : null;
+    const statsBlock = `
+      <div class="tr-stats-grid">
+        <div class="tr-stat"><b>${totalMin}</b><span>хв плану</span></div>
+        <div class="tr-stat"><b>${t.intensity != null ? t.intensity : '—'}</b><span>RPE план</span></div>
+        <div class="tr-stat"><b>${load || '—'}</b><span>Load</span></div>
+        <div class="tr-stat"><b>${attPct != null ? attPct + '%' : '—'}</b><span>Відвідування</span></div>
+        <div class="tr-stat"><b>${rpeN ? avgRpe : '—'}</b><span>Сер. RPE</span></div>
+        <div class="tr-stat"><b>${attPresent}/${attTotal || '—'}</b><span>Було</span></div>
+      </div>`;
+    const planBlock = `
+      <div class="tg-sheet-preview tr-plan-preview">
+        ${t.mainGoal ? ('<div class="tr-goal">🎯 ' + (typeof sanitize === 'function' ? sanitize(t.mainGoal) : t.mainGoal) + '</div>') : ''}
+        <div class="tr-plan-title">План тренування</div>
+        ${struct || '<div class="note-sm">Структура не задана</div>'}
+        ${statsBlock}
+      </div>`;
+    const coachActions = isCoach ? `
       <button type="button" class="tg-sheet-btn" data-sheet-act="edit" data-tid="${t.id}">✏️ Редагувати</button>
       <button type="button" class="tg-sheet-btn" data-sheet-act="attendance" data-tid="${t.id}">✓ Відвідування</button>
       <button type="button" class="tg-sheet-btn" data-sheet-act="dup" data-tid="${t.id}">⧉ Дубль / копія</button>
@@ -961,21 +1171,18 @@ const App = {
         ? `<button type="button" class="tg-sheet-btn" data-sheet-act="restore" data-tid="${t.id}">↩ Відновити (заплановане)</button>`
         : `<button type="button" class="tg-sheet-btn tg-sheet-warn" data-sheet-act="cancel" data-tid="${t.id}">🚫 Скасувати тренування</button>`}
       <button type="button" class="tg-sheet-btn tg-sheet-danger" data-sheet-act="delete" data-tid="${t.id}">🗑 Видалити</button>
+    ` : `
+      <button type="button" class="tg-sheet-btn" data-sheet-act="open-board" data-tid="${t.id}">⚽ Переглянути дошку</button>
+    `;
+    sheet.innerHTML = `
+      <div class="tg-sheet-handle"></div>
+      <div class="tg-sheet-title">${typeof sanitize === 'function' ? sanitize(t.name) : t.name}</div>
+      <div class="tg-sheet-sub">${t.date || ''} · ${Views._trStatusLabel ? Views._trStatusLabel(t.status) : t.status}</div>
+      ${planBlock}
+      ${coachActions}
       <button type="button" class="tg-sheet-btn tg-sheet-cancel" data-sheet-act="close">Закрити</button>
     `;
     sheet.className = 'tg-sheet';
-    // структура тренування в прев'ю
-    const struct = (t.structure || []).map(b =>
-      '• ' + (b.title || b.name || 'Блок') + ' — ' + (b.duration || 0) + ' хв'
-    ).join('<br>');
-    if (struct) {
-      const prev = document.createElement('div');
-      prev.className = 'tg-sheet-preview';
-      prev.innerHTML = (t.mainGoal ? ('🎯 ' + (typeof sanitize === 'function' ? sanitize(t.mainGoal) : t.mainGoal) + '<br><br>') : '') + struct;
-      const sub = sheet.querySelector('.tg-sheet-sub');
-      if (sub && sub.nextSibling) sheet.insertBefore(prev, sub.nextSibling);
-      else sheet.appendChild(prev);
-    }
     backdrop.appendChild(sheet);
     document.body.appendChild(backdrop);
     requestAnimationFrame(() => {
@@ -1399,11 +1606,12 @@ const App = {
       if (t.dataset.tool) {
         const ab = Store.get().activeBoard;
         ab.tool = t.dataset.tool;
-        if (ab.toolsTrayOpen && window.innerWidth < 900) {
-          ab.toolsTrayOpen = false;
-          document.body.classList.remove('tools-tray-open');
-        }
+        // Лоток НЕ закриваємо автоматично — тренер сам згортає ⊕
+        // (раніше на <900px лоток миттєво закривався → здавалося, що «не розгортається»)
         BoardEngine.renderToolbar();
+        try {
+          document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
+        } catch (_) {}
         try { TelegramManager.haptic && TelegramManager.haptic('selection'); } catch (_) {}
         return;
       }
@@ -1529,6 +1737,139 @@ const App = {
         }
         return;
       }
+      if (action === 'edit-self-player') {
+        e.preventDefault(); e.stopPropagation();
+        try {
+          const me = AuthManager.getLinkedPlayer && AuthManager.getLinkedPlayer();
+          if (me && typeof Actions !== 'undefined' && Actions.editPlayer) Actions.editPlayer(me.id);
+          else Toast.show('Профіль не прив\'язано', 'warn');
+        } catch (_) {}
+        return;
+      }
+      
+      if (action === 'upload-club-logo' || action === 'upload-coach-photo') {
+        e.preventDefault(); e.stopPropagation();
+        if (typeof AuthManager !== 'undefined' && AuthManager.isCoach && !AuthManager.isCoach()) {
+          Toast.show('Лише тренер', 'warn'); return;
+        }
+        const isCoach = action === 'upload-coach-photo';
+        const input = document.getElementById(isCoach ? 'settingsCoachPhotoInput' : 'settingsLogoInput')
+          || (() => {
+            const i = document.createElement('input');
+            i.type = 'file'; i.accept = 'image/*'; i.hidden = true;
+            document.body.appendChild(i);
+            return i;
+          })();
+        input.onchange = () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          if (file.size > 2.5e6) { Toast.show('Максимум 2.5 МБ', 'warn'); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const data = reader.result;
+            const s = Store.get().settings;
+            if (isCoach) s.coachPhoto = data;
+            else s.logoData = data;
+            try { StorageManager.save(); } catch (_) {}
+            try { App.applyBranding && App.applyBranding(); } catch (_) {}
+            try { App.renderCurrent && App.renderCurrent(); } catch (_) {}
+            Toast.show(isCoach ? 'Фото тренера оновлено' : 'Логотип оновлено', 'ok');
+          };
+          reader.readAsDataURL(file);
+          input.value = '';
+        };
+        input.click();
+        return;
+      }
+
+      if (action === 'open-fifa-card' || action === 'open-player-card') {
+        e.preventDefault(); e.stopPropagation();
+        const pid = (t.dataset && t.dataset.playerId) || t.getAttribute('data-player-id');
+        const p = (Store.get().players || []).find(x => x.id === pid);
+        if (!p) return;
+        try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
+        // Тренер бачить повну картку «як гравець» + інструменти; гравець — лише FIFA
+        const asCoach = (typeof AuthManager !== 'undefined' && AuthManager.isCoach && AuthManager.isCoach());
+        if (asCoach && typeof Views !== 'undefined' && Views.coachPlayerDetail) {
+          const html = Views.coachPlayerDetail(p.id);
+          if (typeof Modal !== 'undefined' && Modal.open) {
+            Modal.open('Картка гравця · ' + (p.lastName || p.firstName || ''), '<div class="fifa-modal-wrap">' + html + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+            setTimeout(() => { try { const s2 = document.getElementById('playerCompareSel'); if (s2) s2._msCmpBound = false; App._bindPlayerCompare(); } catch (_) {} }, 40);
+          }
+        } else if (typeof Views !== 'undefined' && Views._fifaCard) {
+          const st = Views._playerStats ? Views._playerStats(p.id) : {};
+          const html = Views._fifaCard(p, st);
+          if (typeof Modal !== 'undefined' && Modal.open) {
+            Modal.open('FIFA-картка', '<div class="fifa-modal-wrap">' + html + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+          }
+        }
+        return;
+      }
+      if (action === 'player-compare') {
+        e.preventDefault(); e.stopPropagation();
+        const sel = document.getElementById('playerCompareSel');
+        const oid = sel ? sel.value : (t.value || '');
+        if (typeof window !== 'undefined') {
+          window.__playerCompareId = oid;
+          window.__coachCompareId = oid;
+        }
+        // re-render if coach modal context
+        try {
+          const modalBody = document.getElementById('modalBody');
+          if (modalBody && modalBody.querySelector('.coach-player-view')) {
+            const pid = (modalBody.querySelector('[data-player-id]') || {}).getAttribute?.('data-player-id');
+            // find player from fifa num - better from open state
+          }
+        } catch (_) {}
+        try { App.renderCurrent(); } catch (_) {}
+        return;
+      }
+      if (action === 'award-gift') {
+        e.preventDefault(); e.stopPropagation();
+        if (typeof AuthManager !== 'undefined' && AuthManager.isCoach && !AuthManager.isCoach()) {
+          Toast.show('Лише тренер може нагороджувати', 'warn'); return;
+        }
+        const pid = t.dataset.playerId;
+        const gid = t.dataset.giftId;
+        if (pid && gid && typeof CoachTools !== 'undefined' && CoachTools.awardGift) {
+          CoachTools.awardGift(pid, gid, '');
+          // refresh modal if open
+          if (typeof Views !== 'undefined' && Views.coachPlayerDetail && typeof Modal !== 'undefined' && Modal.open) {
+            const p = (Store.get().players || []).find(x => x.id === pid);
+            Modal.open('Картка гравця · ' + ((p && (p.lastName || p.firstName)) || ''), '<div class="fifa-modal-wrap">' + Views.coachPlayerDetail(pid) + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+          }
+        }
+        return;
+      }
+      if (action === 'add-moment') {
+        e.preventDefault(); e.stopPropagation();
+        if (typeof AuthManager !== 'undefined' && AuthManager.isCoach && !AuthManager.isCoach()) {
+          Toast.show('Лише тренер', 'warn'); return;
+        }
+        const pid = t.dataset.playerId;
+        const text = window.prompt('Памʼятний момент з тренування (короткий підпис):', '');
+        if (text && pid && typeof CoachTools !== 'undefined' && CoachTools.addMoment) {
+          CoachTools.addMoment(pid, text, null);
+          if (typeof Views !== 'undefined' && Views.coachPlayerDetail && typeof Modal !== 'undefined' && Modal.open) {
+            const p = (Store.get().players || []).find(x => x.id === pid);
+            Modal.open('Картка гравця · ' + ((p && (p.lastName || p.firstName)) || ''), '<div class="fifa-modal-wrap">' + Views.coachPlayerDetail(pid) + '</div>', [{ label: 'Закрити', cls: 'btn-s', action: 'cancel' }]);
+          }
+        }
+        return;
+      }
+      if (action === 'attach-gift') {
+        e.preventDefault(); e.stopPropagation();
+        const gid = t.dataset.giftId;
+        if (gid && typeof CoachTools !== 'undefined' && CoachTools.attachGift) CoachTools.attachGift(gid);
+        try { if (typeof App !== 'undefined' && App.renderCurrent) App.renderCurrent(); } catch (_) {}
+        return;
+      }
+      if (action === 'edit-player-form') {
+        e.preventDefault(); e.stopPropagation();
+        const pid = t.dataset.playerId;
+        if (pid && typeof Actions !== 'undefined' && Actions.editPlayer) Actions.editPlayer(pid);
+        return;
+      }
       if (action === 'open-stopwatch') {
         e.preventDefault(); e.stopPropagation();
         return this.openStopwatch();
@@ -1547,14 +1888,48 @@ const App = {
         if (set === 'light' || set === 'dark') return this.applyThemeMode(set);
         return this.toggleTheme();
       }
-      if (action === 'toggle-tools-tray') {
+      if (action === 'board-delete-selected') {
         e.preventDefault(); e.stopPropagation();
+        try {
+          if (typeof BoardEngine !== 'undefined' && BoardEngine.deleteSelected) {
+            const sel = Store.get().activeBoard && Store.get().activeBoard.selectedId;
+            if (!sel) { Toast.show('Спочатку виберіть об\'єкт', 'warn'); return; }
+            BoardEngine.deleteSelected();
+            Toast.show('Видалено', 'ok');
+          }
+        } catch (_) {}
+        return;
+      }
+      if (action === 'toggle-bench') {
+        e.preventDefault(); e.stopPropagation();
+        try {
+          if (typeof BoardEngine !== 'undefined' && BoardEngine.toggleBenchCollapsed) {
+            const c = BoardEngine.toggleBenchCollapsed();
+            Toast.show(c ? 'Лавку згорнуто' : 'Лавка відкрита', 'ok');
+          } else {
+            document.body.classList.toggle('bench-collapsed');
+          }
+        } catch (_) {}
+        return;
+      }
+      if (action === 'toggle-tools-tray') {
+        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
         const ab = Store.get().activeBoard;
         if (!ab) return;
         ab.toolsTrayOpen = !ab.toolsTrayOpen;
         if (ab.toolsTrayOpen) ab.paletteOpen = false;
         document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
-        try { BoardEngine.renderToolbar(); } catch (_) {}
+        // Re-render toolbar so tray HTML matches state, then force-open portal
+        try { BoardEngine.renderToolbar && BoardEngine.renderToolbar(); } catch (_) {}
+        const tray = document.getElementById('btbToolsTray');
+        if (tray) {
+          tray.classList.toggle('open', !!ab.toolsTrayOpen);
+          tray.setAttribute('aria-hidden', ab.toolsTrayOpen ? 'false' : 'true');
+          // Portal to body so overflow:hidden parents cannot clip it (iOS Telegram)
+          if (ab.toolsTrayOpen && tray.parentElement !== document.body) {
+            document.body.appendChild(tray);
+          }
+        }
         try { TelegramManager.haptic && TelegramManager.haptic('light'); } catch (_) {}
         return;
       }
@@ -1899,8 +2274,11 @@ const App = {
       if (e.target.dataset.filter === 'trainings') {
         const q = (document.getElementById('trSearch')?.value || '').toLowerCase();
         const st = document.getElementById('trStatus')?.value || '';
-        let list = Store.get().trainings.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        if (q) list = list.filter(t => t.name.toLowerCase().includes(q));
+        const isCoach = typeof AuthManager !== 'undefined' && AuthManager.isCoach && AuthManager.isCoach();
+        let list = Store.get().trainings.slice();
+        if (!isCoach) list = list.filter(t => t.status !== 'draft' && t.status !== 'pinned');
+        list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        if (q) list = list.filter(t => (t.name || '').toLowerCase().includes(q));
         if (st) list = list.filter(t => t.status === st);
         const el = document.getElementById('trList');
         if (el) el.innerHTML = Views._trList(list);

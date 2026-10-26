@@ -105,7 +105,22 @@ const BoardEngine = {
     this._bindBenchPanelOnce();
     // Resize
     if (window.ResizeObserver) {
-      new ResizeObserver(() => { this.applyCamera(); this.renderTokens(); this.renderDrawings(); }).observe(c);
+      new ResizeObserver(() => { this._sizeStageToPitch && this._sizeStageToPitch(); this.applyCamera(); this.renderTokens(); this.renderDrawings(); }).observe(c);
+      // Freeze guard: clear stuck multi-touch state that leaves zoom indicator active without movement
+      if (!this._freezeGuard) {
+        this._freezeGuard = setInterval(() => {
+          try {
+            if (this.pointers && this.pointers.size && !this.dragObj && !this.panStart && !this.drawing && !this.benchDragId) {
+              // no recent activity — clear
+              if (!this._lastPtrTs || (Date.now() - this._lastPtrTs > 1200)) {
+                this.pointers.clear();
+                this.lastPinchDist = 0;
+                this.updateZoomIndicator && this.updateZoomIndicator();
+              }
+            }
+          } catch (_) {}
+        }, 800);
+      }
     window.addEventListener('orientationchange', () => {
       setTimeout(() => { this.fitField(); this.render(); }, 200);
     });
@@ -214,12 +229,74 @@ const BoardEngine = {
     this.updateZoomIndicator();
   },
 
-  /** Вписати поле в доступну область main */
+  /** Вписати поле в контейнер зі збереженням пропорцій 68:105 (як viewBox).
+   *  Критично: stage має ті самі пропорції, що й SVG, інакше % фішок ≠ розмітка. */
   fitField() {
     this.camera = { x: 0, y: 0, zoom: 1 };
+    this._sizeStageToPitch();
     this.applyCamera();
+    requestAnimationFrame(() => {
+      this._sizeStageToPitch();
+      this.applyCamera();
+      this.renderTokens();
+      this.renderDrawings && this.renderDrawings();
+    });
     this.renderTokens();
     this.renderDrawings();
+  },
+
+  _sizeStageToPitch() {
+    try {
+      const c = document.getElementById('fieldContainer');
+      const stage = document.getElementById('fieldStage');
+      if (!c || !stage) return;
+      const cw = Math.max(1, c.clientWidth || 1);
+      const ch = Math.max(1, c.clientHeight || 1);
+      // Official pitch ratio 68m × 105m → width/height
+      const AR = 68 / 105;
+      let w, h;
+      if (cw / ch > AR) {
+        h = ch;
+        w = h * AR;
+      } else {
+        w = cw;
+        h = w / AR;
+      }
+      w = Math.max(120, Math.round(w));
+      h = Math.max(180, Math.round(h));
+      // Inline !important-equivalent: clear conflicting CSS inset/100%
+      stage.style.cssText = [
+        'position:absolute',
+        'width:' + w + 'px',
+        'height:' + h + 'px',
+        'left:' + Math.round((cw - w) / 2) + 'px',
+        'top:' + Math.round((ch - h) / 2) + 'px',
+        'right:auto',
+        'bottom:auto',
+        'inset:auto',
+        'max-width:none',
+        'max-height:none',
+        'margin:0',
+        'box-sizing:border-box',
+        'aspect-ratio:68/105',
+        'overflow:visible',
+        'transform-origin:50% 50%'
+      ].join(';');
+      // SVG must fill stage exactly (no letterbox) so % chips == markings
+      const svg = document.getElementById('fieldSvg');
+      const draw = document.getElementById('drawSvg');
+      [svg, draw].forEach(el => {
+        if (!el) return;
+        el.setAttribute('preserveAspectRatio', 'none');
+        el.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
+      });
+      const layer = document.getElementById('playersLayer');
+      if (layer) {
+        layer.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none';
+      }
+      this._stageW = w;
+      this._stageH = h;
+    } catch (_) {}
   },
   zoomFit() { this.fitField(); },
   resetCamera() { this.fitField(); },
@@ -336,11 +413,52 @@ const BoardEngine = {
   /** Вихід з режиму дошки (CSS). Native fullscreen додатку НЕ чіпаємо. */
   leaveBoardMode() {
     this.isBoardOnly = false;
+    this.closeToolsTray(true);
     document.body.classList.remove(
       'board-fs-nav', 'board-only-mode', 'mode-board-focus',
-      'board-workspace', 'present-mode', 'bw-props', 'bw-tools-collapsed', 'bw-nav-hide'
+      'board-workspace', 'present-mode', 'bw-props', 'bw-tools-collapsed', 'bw-nav-hide',
+      'tools-tray-open', 'bench-collapsed'
     );
     // document.fullscreenElement і Telegram fullscreen лишаються як були
+  },
+
+  /** Закрити лоток інструментів (і прибрати portal з body) */
+  closeToolsTray(skipRender) {
+    try {
+      const ab = Store.get() && Store.get().activeBoard;
+      if (ab) {
+        ab.toolsTrayOpen = false;
+        ab.paletteOpen = false;
+      }
+      document.body.classList.remove('tools-tray-open');
+      const tray = document.getElementById('btbToolsTray');
+      if (tray) {
+        tray.classList.remove('open');
+        tray.setAttribute('aria-hidden', 'true');
+        // повернути в bottom toolbar якщо був portal
+        const bottom = document.getElementById('boardToolbarBottom');
+        if (bottom && tray.parentElement === document.body) {
+          bottom.appendChild(tray);
+        }
+      }
+      if (!skipRender) {
+        try { this.renderToolbar && this.renderToolbar(); } catch (_) {}
+      }
+    } catch (_) {}
+  },
+
+  toggleBenchCollapsed() {
+    const collapsed = document.body.classList.toggle('bench-collapsed');
+    try {
+      const ab = Store.get().activeBoard;
+      if (ab) ab.benchCollapsed = collapsed;
+    } catch (_) {}
+    try {
+      this._sizeStageToPitch && this._sizeStageToPitch();
+      this.applyCamera && this.applyCamera();
+      this.renderTokens && this.renderTokens();
+    } catch (_) {}
+    return collapsed;
   },
 
 
@@ -374,7 +492,22 @@ const BoardEngine = {
 
   /* ── POINTER DOWN ── */
   onPointerDown(e) {
-    // Ignore secondary buttons except middle for pan
+    // Будь-яка робота на полі ховає лоток інструментів
+    try {
+      const ab = Store.get() && Store.get().activeBoard;
+      if (ab && ab.toolsTrayOpen) {
+        this.closeToolsTray(true);
+        // оновити іконку ⊕ без повного rebuild якщо можливо
+        const more = document.querySelector('#boardToolbarBottom .tb-more');
+        if (more) {
+          more.classList.remove('on');
+          more.setAttribute('aria-expanded', 'false');
+          const ic = more.querySelector('.tb-more-icon');
+          if (ic) ic.textContent = '⊕';
+        }
+      }
+    } catch (_) {}
+// Ignore secondary buttons except middle for pan
     if (e.button === 2) return;
     e.preventDefault();
 
@@ -555,6 +688,7 @@ const BoardEngine = {
 
   /* ── POINTER MOVE — ZERO LAG path ── */
   onPointerMove(e) {
+    this._lastPtrTs = Date.now();
     const interacting = this.dragObj || this.panStart || this.drawing || this.pointers.size >= 2 || this.benchDragId;
     if (interacting) {
       try { e.preventDefault(); } catch (_) {}
@@ -660,10 +794,17 @@ const BoardEngine = {
     try {
       if (e && e.pointerId != null) this.pointers.delete(e.pointerId);
     } catch (_) {}
-    // Захист від «мертвих» pointerId у Map
-    if (this.pointers.size > 2) {
+    // Захист від «мертвих» pointerId у Map / зависання zoom-індикатора
+    if (this.pointers.size > 2 || (this.pointers.size && !this.dragObj && !this.panStart && !this.drawing)) {
       this.pointers.clear();
       this.lastPinchDist = 0;
+    }
+    // Safety: якщо pointerup без активного жесту — повний скид
+    if (!this.dragObj && !this.panStart && !this.drawing && !this.benchDragId) {
+      this.lastPinchDist = 0;
+      if (this.pointers.size === 0) {
+        try { this.updateZoomIndicator && this.updateZoomIndicator(); } catch (_) {}
+      }
     }
     if (this.pointers.size < 2) {
       this.lastPinchDist = 0;
@@ -1476,14 +1617,19 @@ const BoardEngine = {
       '';
   },
 
-  /** Розмір фішки відносно видимої висоти поля (розмітка ~105м, гравець ~1.7%) */
+  /** Розмір фішки = % ширини поля → масштабується разом із розміткою. */
   tokenMetrics() {
-    // Базовий розмір = як аватар на лавці (28px). Zoom/pan — через CSS transform #fieldStage,
-    // тому фішки масштабуються разом із полем, позиції лишаються у 0..1.
-    const BENCH_AVATAR = 28;
-    const player = BENCH_AVATAR;
-    const ball = Math.round(player * 0.42);
-    const inv = Math.round(player * 0.36);
+    const stage = document.getElementById('fieldStage');
+    // Prefer measured stage width; on iOS first frame may be 0 → fallback container
+    let w = this._stageW || (stage && stage.clientWidth) || 0;
+    if (w < 80) {
+      const c = document.getElementById('fieldContainer');
+      w = (c && c.clientWidth) || 320;
+    }
+    // ~5.2% ширини поля; clamp tighter for phones so chips stay readable but scale down
+    const player = Math.max(16, Math.min(42, Math.round(w * 0.052)));
+    const ball = Math.max(8, Math.round(player * 0.40));
+    const inv = Math.max(10, Math.round(player * 0.38));
     const cone = Math.round(inv * 1.05);
     const equip = inv;
     const chip = Math.round(inv * 0.95);
@@ -1491,10 +1637,11 @@ const BoardEngine = {
     const mark = Math.round(inv * 0.55);
     const markSq = Math.round(inv * 0.95);
     const goal = Math.round(player * 1.35);
+    const font = Math.max(8, Math.min(14, Math.round(player * 0.38)));
     return {
       player, ball, cone, equip, chip, chipLg, mark, markSq, inv, goal,
-      font: 11,
-      ringPad: 5
+      font,
+      ringPad: Math.max(4, Math.round(player * 0.18))
     };
   },
 
@@ -1681,7 +1828,7 @@ const BoardEngine = {
         '<div class="bench-avatar-wrap">' + ringSvg +
         '<div class="bench-avatar" style="' + bgStyle + '"><span class="bench-num">' + (o.number || '') + '</span></div></div>' +
         '<div class="bench-meta"><span class="bench-pos">' + (o.position || (pl && pl.position) || '') + '</span> ' +
-        '<span class="bench-name">' + (o.label || '') + '</span>' + tag + '</div></div>';
+        '<span class="bench-name">' + sanitize(o.label || '') + '</span>' + tag + '</div></div>';
     };
     const stOf = (o) => o.status || ((s.players || []).find(p => p.id === o.playerId) || {}).status || '';
     const grOf = (o) => ((s.players || []).find(p => p.id === o.playerId) || {}).group || '';
@@ -1713,6 +1860,18 @@ const BoardEngine = {
   },
   renderTokens() {
     // migrateLeftEdgeToBench — лише при loadBoard, не на кожен кадр (ламає лівий фланг)
+    try {
+      const objs = (Store.get().activeBoard && Store.get().activeBoard.objects) || [];
+      objs.forEach(o => {
+        if (!o || o.onBench) return;
+        if (o.type === 'player' || o.type === 'opponent' || o.type === 'ball') {
+          if (o.x == null || isNaN(o.x)) o.x = 0.5;
+          if (o.y == null || isNaN(o.y)) o.y = 0.5;
+          o.x = Math.max(0.02, Math.min(0.98, Number(o.x)));
+          o.y = Math.max(0.02, Math.min(0.98, Number(o.y)));
+        }
+      });
+    } catch (_) {}
     this.renderBenchPanel();
     const layer = document.getElementById('playersLayer');
     if (!layer) return;
@@ -2243,6 +2402,7 @@ const BoardEngine = {
           <button class="tb ${tool==='run'?'on':''}" data-tool="run" title="Рух">⇢</button>
           <button class="tb ${tool==='dribble'?'on':''}" data-tool="dribble" title="Ведення">∿</button>
           <button type="button" class="tb tb-palette-toggle" data-action="toggle-palette" title="Палітра">🎨</button>
+          <button type="button" class="tb tb-del" data-action="board-delete-selected" title="Видалити вибране">🗑</button>
           <button type="button" class="tb tb-more ${trayOpen?'on':''}" data-action="toggle-tools-tray" title="Більше інструментів" aria-expanded="${trayOpen?'true':'false'}">
             <span class="tb-more-icon">${trayOpen ? '✕' : '⊕'}</span>
           </button>
@@ -2340,6 +2500,18 @@ const BoardEngine = {
     }
     const ss = document.getElementById('schemeSel');
     if (ss) ss.onchange = () => { if (ss.value) BoardEngine.applyScheme(ss.value); };
+    // Sync tray / palette body classes after every toolbar re-render
+    try {
+      document.body.classList.toggle('tools-tray-open', !!ab.toolsTrayOpen);
+      try {
+        const tray = document.getElementById('btbToolsTray');
+        if (tray) {
+          tray.classList.toggle('open', !!ab.toolsTrayOpen);
+          tray.setAttribute('aria-hidden', ab.toolsTrayOpen ? 'false' : 'true');
+        }
+      } catch (_) {}
+      document.body.classList.toggle('palette-open', !!ab.paletteOpen);
+    } catch (_) {}
   },
 
 };

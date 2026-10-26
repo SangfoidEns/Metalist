@@ -1116,11 +1116,22 @@ body.mode-board-focus #boardToolbar.btb {
   }
 }
 /* Touch targets на дошці */
+/* Фішки/інвентар: НЕ стискати max-width — позиція лише left/top % + translate(-50%,-50%) */
 body.mode-board-focus #playersLayer .pt,
-body.mode-board-focus #playersLayer .ball,
+body.mode-board-focus #playersLayer .pt.pt-bench-style {
+  max-width: none !important;
+  max-height: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+body.mode-board-focus #playersLayer .ball {
+  max-width: none !important;
+  max-height: none !important;
+}
 body.mode-board-focus #playersLayer .eq {
-  max-width: 22px !important;
-  max-height: 26px !important;
+  max-width: none !important;
+  max-height: none !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -3998,8 +4009,9 @@ body.role-guest .mni[data-view="board"],
 body.role-guest .mni[data-view="analytics"],
 body.role-guest .mni[data-view="diary"],
 body.role-guest .mni[data-view="settings"] { display: none !important; }
+/* Гравець МАЄ доступ до дошки — не ховати */
 body.role-player .nav[data-view="board"],
-body.role-player .mni[data-view="board"] { display: none !important; }
+body.role-player .mni[data-view="board"] { display: flex !important; }
 
 /* ═══ FIFA + Glass player card ═══ */
 .fifa-card {
@@ -6197,10 +6209,15 @@ body.mode-board-focus .btb-tray {
   z-index: 35 !important;
 }
 body.tools-tray-open #boardToolbarBottom .btb-tray,
-body.tools-tray-open .btb-tray {
+body.tools-tray-open .btb-tray,
+#boardToolbarBottom .btb-tray.open,
+.btb-tray.open {
   transform: translateY(0) !important;
   opacity: 1 !important;
   pointer-events: auto !important;
+  visibility: visible !important;
+  max-height: min(48vh, 360px) !important;
+  z-index: 80 !important;
 }
 #boardToolbarBottom {
   position: relative !important;
@@ -6236,9 +6253,11 @@ body.board-active .mn {
 }
 
 /* Player / guest home — same stable profile, no coach actions overflow */
-body.role-player .cp-pills .cp-pill-primary,
 body.role-guest .cp-pills .cp-pill-primary {
   display: none !important;
+}
+body.role-player .cp-pills .cp-pill-primary {
+  display: inline-flex !important;
 }
 body.role-player .coach-tools-card,
 body.role-guest .coach-tools-card {
@@ -6321,3 +6340,860 @@ body.role-guest [data-action="new-player"] {
   width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover;
 }
 .gm-cap { font-size: 11px; padding: 6px 8px; color: var(--muted); }
+
+body.role-player .player-quick { display: flex !important; }
+body.role-player .player-stats-card { display: block !important; }
+body.role-player .fifa-card { display: block !important; }
+
+.app-build-tag {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #e8c547;
+  opacity: 0.85;
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(232, 197, 71, 0.12);
+  border: 0.5px solid rgba(232, 197, 71, 0.35);
+}
+.cp-person .cp-orbit:empty { display: none !important; }
+.cp-title {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+}
+.cp-role-badge {
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase;
+}
+
+/* Header balance v2 */
+.tg-hdr-pill {
+  grid-template-columns: 1fr auto 1fr !important;
+  align-items: center !important;
+  min-height: 64px !important;
+  padding: 8px 12px !important;
+}
+.tg-clock-btn {
+  justify-self: start !important;
+  font-size: 13px !important;
+  font-variant-numeric: tabular-nums !important;
+  font-weight: 700 !important;
+  padding: 8px 10px !important;
+}
+.tg-hdr-center { justify-self: center !important; }
+.tg-emblem { width: 48px !important; height: 48px !important; margin: 0 auto !important; }
+.tg-emblem-face, .tg-emblem .logo-ph { width: 48px !important; height: 48px !important; }
+.tg-hdr-titles { max-width: 160px !important; }
+.tg-hdr-titles .brand-title { font-size: 11px !important; text-align: center !important; }
+.tg-hdr-titles .brand-coach { font-size: 10px !important; text-align: center !important; }
+.tg-next-btn {
+  justify-self: end !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 2px !important;
+  max-width: 110px !important;
+  padding: 6px 8px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: transparent !important;
+  color: inherit !important;
+  cursor: pointer !important;
+}
+.tg-next-label {
+  font-size: 9px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--muted) !important;
+  font-weight: 700 !important;
+}
+.tg-next-val {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100px !important;
+}
+.cp-clean .cp-orbit { display: none !important; }
+.cp-clean {
+  text-align: center !important;
+  padding: 28px 16px 20px !important;
+  border-radius: 24px !important;
+}
+.cp-clean .cp-avatar {
+  width: 88px !important;
+  height: 88px !important;
+  margin: 0 auto 12px !important;
+  border-radius: 50% !important;
+  border-width: 3px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.cp-clean .cp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cp-clean .cp-avatar-ph { font-size: 28px !important; font-weight: 800 !important; }
+.cp-clean .cp-title { font-size: 20px !important; margin: 0 0 8px !important; }
+.fifa-modal-wrap .fifa-card { display: block !important; margin: 0 !important; }
+
+/* Emblem ring — even circle */
+.tg-emblem { position: relative !important; }
+.tg-emblem-ring {
+  position: absolute !important;
+  inset: -4px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(232, 197, 71, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(232, 197, 71, 0.12) !important;
+  pointer-events: none !important;
+}
+.tg-emblem-face, .tg-emblem .logo-ph {
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+.tg-next-cd {
+  font-size: 9px !important;
+  color: var(--accent, #e8c547) !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+body.role-player [data-view="settings"],
+body.role-player .mni[data-view="settings"],
+body.role-guest [data-view="settings"] {
+  display: none !important;
+}
+body.role-player .coach-only,
+body.role-player [data-io="export"] {
+  display: none !important;
+}
+.pl-stats-table { font-size: 12px; }
+.pl-stats-head, .pl-stats-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.5fr 0.6fr 0.5fr 0.4fr 0.5fr;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.06);
+}
+.pl-stats-head { font-weight: 700; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.bday-greet { text-align: center; padding: 12px; }
+.bday-balloon { font-size: 48px; animation: bdayPop 0.6s ease; }
+@keyframes bdayPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.bday-row { padding: 6px 0; font-size: 13px; border-bottom: 0.5px solid rgba(255,255,255,0.06); }
+/* Field tokens stick to field layer */
+#playersLayer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+}
+#playersLayer .pt, #playersLayer .ball, #playersLayer .eq {
+  pointer-events: auto;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 2026.10.24-g — header align, chip lock, gifts, coach player card
+   ═══════════════════════════════════════════════════════════ */
+
+/* Header: 3 equal visual zones, no overlap, emblem perfectly centered */
+.header.header-tg.glass-pill-hdr {
+  padding: max(env(safe-area-inset-top, 0px), 8px) 12px 10px !important;
+}
+.tg-hdr-pill {
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 64px !important;
+  padding: 8px 12px !important;
+  border-radius: 22px !important;
+  overflow: visible !important;
+  background: rgba(18, 22, 32, 0.78) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 0.5px solid rgba(255,255,255,0.12) !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+.tg-clock-btn {
+  justify-self: start !important;
+  align-self: center !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.tg-hdr-center {
+  justify-self: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+}
+/* Emblem + rings — perfect circle stack */
+.tg-emblem {
+  position: relative !important;
+  width: 48px !important;
+  height: 48px !important;
+  margin: 0 auto !important;
+  flex-shrink: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+}
+.tg-emblem-ring {
+  position: absolute !important;
+  inset: -4px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(232, 197, 71, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(232, 197, 71, 0.12) !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+}
+.tg-emblem-progress {
+  position: absolute !important;
+  inset: -6px !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+}
+.tg-emblem-face,
+.tg-emblem .logo-ph {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+.tg-hdr-titles {
+  text-align: center !important;
+  max-width: 160px !important;
+  overflow: hidden !important;
+}
+.tg-hdr-titles .brand-title {
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.tg-hdr-titles .brand-coach,
+#authBadge {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 160px !important;
+}
+.tg-next-btn {
+  justify-self: end !important;
+  align-self: center !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  text-align: right !important;
+  padding: 6px 10px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 1px !important;
+}
+.tg-next-label { font-size: 9px !important; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.04em; }
+.tg-next-val { font-size: 11px !important; font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tg-next-cd { font-size: 10px !important; color: var(--accent, #e8c547); }
+
+/* Chip position lock — center anchor, no size squash */
+#playersLayer .pt,
+#playersLayer .pt.pt-bench-style {
+  position: absolute !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  will-change: left, top;
+}
+#playersLayer .pt.pt-bench-style {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+#playersLayer .pt.pt-bench-style .pt-load-ring {
+  width: 40px !important;
+  height: 40px !important;
+  left: 0 !important;
+  top: 0 !important;
+  transform: none !important;
+}
+
+/* Gifts (Telegram-style attachable badges) */
+.gift-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.07);
+  border: 0.5px solid rgba(255,255,255,0.12);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.gift-chip .gift-ico { font-size: 16px; }
+.gift-chip.attached {
+  border-color: rgba(232,197,71,0.55);
+  box-shadow: 0 0 0 1px rgba(232,197,71,0.2);
+}
+.gift-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.gift-award-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.gift-award-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text);
+}
+.gift-award-btn:active { background: rgba(255,255,255,0.12); }
+.gift-award-btn .ico { font-size: 22px; }
+
+/* Coach player detail (as player sees) */
+.coach-player-view .fifa-modal-wrap { margin-bottom: 12px; }
+.coach-player-view .cpv-section { margin-top: 14px; }
+.coach-player-view .cpv-title {
+  font-size: 13px; font-weight: 800; margin-bottom: 8px;
+  letter-spacing: -0.02em; color: var(--text);
+}
+.moment-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  margin-bottom: 8px;
+}
+.moment-card .moment-date { font-size: 11px; color: var(--muted); }
+.moment-card .moment-text { font-size: 13px; margin-top: 4px; }
+
+@media (max-width: 420px) {
+  .tg-hdr-pill { min-height: 58px !important; padding: 6px 8px !important; gap: 4px !important; }
+  .tg-emblem, .tg-emblem-face, .tg-emblem .logo-ph { width: 42px !important; height: 42px !important; }
+  .tg-hdr-titles { max-width: 120px !important; }
+  .tg-next-val { max-width: 90px; }
+}
+
+
+/* ═══ PITCH ASPECT LOCK 2026.10.24-h ═══
+   stage = exact 68:105 box centered in .fc
+   playersLayer % map 1:1 to SVG markings
+*/
+#fieldContainer.fc,
+body.mode-board-focus .fc,
+body.board-workspace .fc,
+.view-board .fc {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  overflow: hidden !important;
+  aspect-ratio: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  background: #0a1210 !important;
+}
+#fieldStage,
+body.mode-board-focus .field-stage,
+.field-stage {
+  position: absolute !important;
+  /* JS sets left/top/width/height via _sizeStageToPitch — do not force inset:0 */
+  inset: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  aspect-ratio: 68 / 105 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  transform-origin: 50% 50% !important;
+  background: #1a5c2e;
+  overflow: visible !important;
+}
+#fieldStage .fs,
+#fieldStage .dl,
+#fieldStage .dl svg,
+#fieldStage .pl,
+#fieldStage #playersLayer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+}
+
+/* Tools tray MUST open on all widths */
+body.tools-tray-open #boardToolbarBottom .btb-tray.open,
+body.tools-tray-open #btbToolsTray,
+#boardToolbarBottom .btb-tray.open {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateY(0) !important;
+  max-height: min(52vh, 380px) !important;
+  z-index: 120 !important;
+}
+
+/* Emblem absolute fix */
+.tg-hdr-center { overflow: visible !important; }
+.tg-emblem {
+  width: 52px !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  border-radius: 50% !important;
+  overflow: visible !important;
+  display: grid !important;
+  place-items: center !important;
+  position: relative !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+.tg-emblem-ring {
+  inset: -5px !important;
+  border-radius: 50% !important;
+  border: 2.5px solid rgba(232,197,71,0.55) !important;
+  box-shadow: 0 0 0 4px rgba(232,197,71,0.12) !important;
+}
+.tg-emblem-face, .tg-emblem .logo-ph, #clubLogo {
+  width: 52px !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  border: 2px solid rgba(255,255,255,0.15) !important;
+}
+.tg-emblem-face img, .tg-emblem .logo-ph img, #clubLogo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block !important;
+}
+
+/* Players table sort headers visible */
+.pl-head {
+  display: grid !important;
+  grid-template-columns: 48px 1fr 52px 56px 64px !important;
+  gap: 4px !important;
+  padding: 8px 10px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--muted) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+.pl-th {
+  background: transparent !important;
+  border: none !important;
+  color: inherit !important;
+  font: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  padding: 4px 2px !important;
+  min-height: 36px !important;
+}
+.pl-th.on { color: var(--accent, #e8c547) !important; }
+.pl-row {
+  display: grid !important;
+  grid-template-columns: 48px 1fr 52px 56px 64px !important;
+  gap: 4px !important;
+  align-items: center !important;
+  padding: 10px !important;
+  min-height: 48px !important;
+  cursor: pointer !important;
+}
+
+
+/* ========== 2026.10.24-j CRITICAL OVERRIDES ========== */
+
+/* Field stage: NEVER stretch full container — JS sets exact 68:105 box */
+#fieldStage.field-stage,
+.field-stage#fieldStage,
+body.mode-board-focus #fieldStage {
+  inset: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: 68 / 105;
+  overflow: visible !important;
+}
+#fieldSvg, #drawSvg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+#playersLayer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+}
+#playersLayer .pt,
+#playersLayer .ball,
+#playersLayer .eq {
+  pointer-events: auto !important;
+}
+
+/* Tools tray: FIXED bottom sheet — never clipped by overflow:hidden parents */
+#boardToolbarBottom {
+  position: relative !important;
+  overflow: visible !important;
+  z-index: 90 !important;
+}
+#v-board.view-board,
+#v-board {
+  overflow: visible !important;
+}
+body.mode-board-focus #v-board,
+body.mode-board-focus #boardArea {
+  overflow: hidden !important; /* field only */
+}
+#btbToolsTray,
+#boardToolbarBottom .btb-tray,
+.btb-tray {
+  position: fixed !important;
+  left: max(8px, env(safe-area-inset-left, 0px)) !important;
+  right: max(8px, env(safe-area-inset-right, 0px)) !important;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  max-height: min(48vh, 360px) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  transform: translateY(110%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: transform 0.25s cubic-bezier(.2,.8,.2,1), opacity 0.2s ease, visibility 0.2s !important;
+  background: rgba(14, 18, 28, 0.97) !important;
+  backdrop-filter: blur(28px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
+  border-radius: 18px 18px 14px 14px !important;
+  border: 0.5px solid rgba(255,255,255,0.12) !important;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.45) !important;
+  padding: 10px 12px 14px !important;
+  z-index: 200 !important;
+}
+body.tools-tray-open #btbToolsTray,
+body.tools-tray-open #boardToolbarBottom .btb-tray,
+body.tools-tray-open .btb-tray,
+#btbToolsTray.open,
+#boardToolbarBottom .btb-tray.open,
+.btb-tray.open {
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  display: block !important;
+  z-index: 200 !important;
+}
+.btb-tray-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.25);
+  margin: 2px auto 10px;
+}
+.btb-tray-grid { display: flex; flex-direction: column; gap: 10px; }
+.btb-tray-label {
+  font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.45);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+}
+.btb-tray-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Tactics / schemes grid — no overflow past edges */
+#v-tactics .sg,
+.view#v-tactics .sg,
+.sg {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+#v-tactics .sb2,
+.sg .sb2 {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  padding: 12px 10px !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+}
+#v-tactics .card,
+.view .card {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 420px) {
+  #v-tactics .sg, .sg {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Coach FIFA card photo */
+.coach-card-fifa .cc-photo {
+  width: 96px; height: 96px; border-radius: 50%;
+  margin: 8px auto 12px; overflow: hidden;
+  border: 3px solid rgba(232,197,71,0.55);
+  box-shadow: 0 0 24px rgba(232,197,71,0.25);
+  background: linear-gradient(145deg, #c8a84b, #8a7020);
+  display: grid; place-items: center;
+}
+.coach-card-fifa .cc-photo img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  border-radius: 50%;
+}
+.coach-card-fifa .cc-photo-ph {
+  font-size: 32px; font-weight: 800; color: #1a1a1a;
+}
+
+
+/* Gift orbit around profile avatar */
+.cp-avatar-wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+}
+.cp-avatar-wrap .cp-avatar {
+  width: 72px !important;
+  height: 72px !important;
+  margin: 0 !important;
+}
+.cp-gift-orbit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cp-gift-orb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: rgba(20,24,32,0.92);
+  border: 1px solid rgba(232,197,71,0.45);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  z-index: 2;
+}
+.cp-role-badge[data-action="coach-easter"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Tools tray portal — always on top in Telegram WebView */
+body > #btbToolsTray,
+body.tools-tray-open > #btbToolsTray {
+  position: fixed !important;
+  left: 8px !important;
+  right: 8px !important;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  max-height: min(50vh, 380px) !important;
+  z-index: 99999 !important;
+}
+
+/* TOKEN SIZE iOS LOCK — only --tok from BoardEngine.tokenMetrics */
+#playersLayer .pt,
+body.mode-board-focus #playersLayer .pt {
+  width: var(--tok, 28px) !important;
+  height: var(--tok, 28px) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  font-size: var(--tok-font, 10px) !important;
+}
+#playersLayer .pt .pt-face,
+#playersLayer .pt .pt-num {
+  font-size: inherit !important;
+}
+
+
+/* ===== 2026.10.24-m board tray / bench / player UI ===== */
+body:not(.mode-board-focus) #btbToolsTray,
+body:not(.mode-board-focus) .btb-tray,
+body:not(.mode-board-focus) > #btbToolsTray {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* Collapsible bench */
+.bench-head {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.bench-toggle {
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #fff; font-size: 16px; cursor: pointer;
+  flex-shrink: 0;
+}
+body.bench-collapsed .bench-panel {
+  flex-basis: 0 !important;
+  max-width: 0 !important;
+  min-width: 0 !important;
+  width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+}
+.bench-fab {
+  display: none;
+  position: absolute;
+  left: 8px; top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  width: 36px; height: 44px;
+  border-radius: 0 12px 12px 0;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(14,18,28,0.92);
+  color: #fff; font-size: 16px;
+  backdrop-filter: blur(12px);
+}
+body.bench-collapsed .bench-fab {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+body.mode-board-focus #boardArea {
+  display: flex !important;
+}
+body.bench-collapsed #fieldContainer {
+  flex: 1 1 auto !important;
+}
+
+.tb-del { color: #ff8a80 !important; }
+
+/* Player squad cards */
+.pl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 4px 0 24px;
+}
+.pl-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(20,24,32,0.75);
+  transition: transform 0.15s ease, border-color 0.15s;
+}
+.pl-card:active { transform: scale(0.98); }
+.pl-card-av {
+  width: 64px; height: 64px; border-radius: 50%;
+  overflow: hidden; border: 2px solid;
+  display: grid; place-items: center;
+  margin-bottom: 8px;
+}
+.pl-card-av img { width: 100%; height: 100%; object-fit: cover; }
+.pl-card-name { font-weight: 700; font-size: 13px; }
+.pl-card-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.pl-card-att { font-size: 11px; color: var(--club-accent); margin-top: 6px; }
+
+/* Training sheet stats */
+.tr-plan-preview { text-align: left; margin: 8px 0 12px; }
+.tr-plan-title { font-size: 12px; font-weight: 700; color: var(--muted); margin: 8px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tr-plan-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.tr-goal { margin-bottom: 8px; font-size: 13px; }
+.tr-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.tr-stat {
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 10px 6px;
+  text-align: center;
+}
+.tr-stat b { display: block; font-size: 16px; color: var(--club-accent); }
+.tr-stat span { font-size: 10px; color: var(--muted); }
+
+/* Role-based bottom nav */
+body.role-coach .mni-player { display: none !important; }
+body.role-player .mni-coach,
+body.role-guest .mni-coach { display: none !important; }
+body.role-player .mni-player,
+body.role-guest .mni-player { display: flex !important; }
+body:not(.role-player):not(.role-guest) .mni-player { display: none !important; }
+body:not(.role-coach) .mni-coach { display: none !important; }
+/* default (no role / coach local): show coach trainings tab */
+body:not(.role-player):not(.role-guest) .mni-coach { display: flex !important; }
+
+#mobileNav.glass-nav {
+  display: flex !important;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 0;
+}
+#mobileNav .mni {
+  flex: 1 1 0;
+  min-width: 52px;
+}
